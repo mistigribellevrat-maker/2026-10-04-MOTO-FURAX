@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MOTOR FURAX - Course au Collège</title>
+  
+  <!-- Polices Racing / Arcade -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  
+  <!-- Bibliothèque 3D Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #ff3b00;
+      --primary-glow: rgba(255, 59, 0, 0.6);
+      --accent: #00e5ff;
+      --accent-glow: rgba(0, 229, 255, 0.5);
+      --gold: #ffbe0b;
+      --dark: #07090e;
+      --card-bg: rgba(13, 17, 26, 0.94);
+      --glass-border: rgba(255, 255, 255, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--dark);
+      font-family: 'Rajdhani', sans-serif;
+      color: #fff;
+    }
+
+    /* RÈGLE GLOBALE DE MASQUAGE (CORRIGÉE : PRIORITÉ ABSOLUE) */
+    .hidden {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
+
+    /* CONTENEUR DU JEU 3D */
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* ÉCRANS PRINCIPAUX */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background-size: cover;
+      background-position: center;
+    }
+
+    /* 1. ÉCRAN D'ACCUEIL */
+    #screen-home {
+      background: radial-gradient(circle at center, rgba(20, 27, 45, 0.85) 0%, #050608 95%);
+    }
+
+    .splash-image-box {
+      width: 420px;
+      height: 260px;
+      border-radius: 18px;
+      border: 3px solid var(--primary);
+      box-shadow: 0 0 35px var(--primary-glow);
+      overflow: hidden;
+      margin-bottom: 24px;
+      background: #111;
+      position: relative;
+    }
+
+    .splash-image-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .title-box {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .game-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 4.2rem;
+      font-weight: 900;
+      font-style: italic;
+      letter-spacing: 5px;
+      color: #fff;
+      text-shadow: 0 0 10px var(--primary), 0 0 30px var(--primary), 0 0 50px #ff0055;
+      text-transform: uppercase;
+      animation: pulseTitle 2s infinite alternate;
+    }
+
+    .game-subtitle {
+      font-size: 1.4rem;
+      letter-spacing: 3px;
+      color: var(--accent);
+      text-transform: uppercase;
+      font-weight: 700;
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    @keyframes pulseTitle {
+      0% { transform: scale(0.98); }
+      100% { transform: scale(1.02); filter: brightness(1.2); }
+    }
+
+    /* BOUTONS STYLE AAA */
+    .btn {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 16px 42px;
+      border: 1px solid var(--primary);
+      background: linear-gradient(135deg, rgba(255, 59, 0, 0.45), rgba(255, 59, 0, 0.15));
+      color: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+      box-shadow: 0 0 25px rgba(255, 59, 0, 0.35);
+      backdrop-filter: blur(8px);
+    }
+
+    .btn:hover {
+      background: linear-gradient(135deg, #ff3b00, #ff8400);
+      transform: translateY(-3px) scale(1.03);
+      box-shadow: 0 0 40px var(--primary-glow);
+      color: #000;
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    .btn-secondary {
+      border-color: var(--accent);
+      background: linear-gradient(135deg, rgba(0, 229, 255, 0.3), rgba(0, 229, 255, 0.08));
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+    }
+
+    .btn-secondary:hover {
+      background: linear-gradient(135deg, #00e5ff, #80f0ff);
+      box-shadow: 0 0 35px var(--accent-glow);
+      color: #000;
+    }
+
+    /* 2. MENU PRINCIPAL */
+    #screen-menu {
+      background: rgba(5, 7, 12, 0.85);
+      backdrop-filter: blur(20px);
+    }
+
+    .menu-card {
+      background: var(--card-bg);
+      border: 2px solid var(--accent);
+      border-radius: 20px;
+      padding: 40px 50px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      width: 440px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.9), 0 0 40px rgba(0, 229, 255, 0.25);
+      text-align: center;
+    }
+
+    .menu-card h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.1rem;
+      letter-spacing: 3px;
+      color: #fff;
+      margin-bottom: 10px;
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 12px;
+    }
+
+    /* FENÊTRES MODALES (BOUTIQUE & CHARGEMENT) */
+    .modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(15px);
+      z-index: 50;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-box {
+      background: var(--card-bg);
+      border: 2px solid var(--accent);
+      border-radius: 20px;
+      padding: 35px;
+      width: 90%;
+      max-width: 650px;
+      box-shadow: 0 0 50px var(--accent-glow);
+      text-align: center;
+    }
+
+    .shop-items {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin: 24px 0;
+    }
+
+    .shop-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+
+    .shop-card.selected {
+      border-color: var(--gold);
+      background: rgba(255, 190, 11, 0.15);
+      box-shadow: 0 0 20px rgba(255, 190, 11, 0.5);
+    }
+
+    /* HUD EN JEU */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .hud-box {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      padding: 14px 24px;
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    .speed-dial {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 3.2rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 15px var(--accent);
+      line-height: 1;
+    }
+
+    .speed-dial span {
+      font-size: 1.1rem;
+      color: var(--accent);
+    }
+
+    .nitro-gauge {
+      margin-top: 8px;
+      width: 170px;
+      height: 12px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 6px;
+      border: 1px solid var(--primary);
+      overflow: hidden;
+    }
+
+    .nitro-fill {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #ff0055, var(--primary));
+      transition: width 0.1s linear;
+    }
+
+    .progress-container {
+      width: 320px;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 14px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1px solid var(--glass-border);
+      margin-top: 6px;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--gold), var(--primary));
+      border-radius: 7px;
+      transition: width 0.1s linear;
+    }
+
+    .alert-banner {
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 900;
+      padding: 12px 32px;
+      background: rgba(255, 59, 0, 0.9);
+      border: 2px solid #fff;
+      border-radius: 8px;
+      color: #fff;
+      text-transform: uppercase;
+      box-shadow: 0 0 35px #ff3b00;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+    }
+
+    /* CONTROLES TACTILES */
+    .mobile-controls {
+      display: none;
+      pointer-events: auto;
+      width: 100%;
+      justify-content: space-between;
+      margin-bottom: 15px;
+    }
+
+    @media (max-width: 900px) {
+      .mobile-controls { display: flex; }
+      .game-title { font-size: 2.8rem; }
+      .menu-card { width: 90%; padding: 25px; }
+      .splash-image-box { width: 90%; height: 180px; }
+    }
+
+    .m-btn {
+      width: 65px;
+      height: 65px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid var(--glass-border);
+      border-radius: 50%;
+      font-size: 1.6rem;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+    }
+    .m-btn:active { background: var(--primary); }
+  </style>
+</head>
+<body>
+
+  <!-- RENDU 3D THREE.JS -->
+  <div id="canvas-container"></div>
+
+  <!-- 1. ÉCRAN D'ACCUEIL -->
+  <div id="screen-home" class="screen">
+    <div class="splash-image-box">
+      <!-- Votre image motor_furax.jpg s'insère ici automatiquement -->
+      <img id="splash-img" src="motor_furax.jpg" alt="MOTOR FURAX" onerror="generateFallbackSplash(this);">
+    </div>
+
+    <div class="title-box">
+      <h1 class="game-title">MOTOR FURAX</h1>
+      <div class="game-subtitle">⚡ COLLÈGE RUN - 8H00 DERNIER DÉLAI ⚡</div>
+    </div>
+
+    <button id="btn-play-home" class="btn">JOUER</button>
+  </div>
+
+  <!-- 2. MENU PRINCIPAL -->
+  <div id="screen-menu" class="screen hidden">
+    <div class="menu-card">
+      <h2>MENU PRINCIPAL</h2>
+      <button id="btn-start-game" class="btn">DÉBUTER PARTIE</button>
+      <button id="btn-load-game" class="btn btn-secondary">CHARGER PARTIE</button>
+      <button id="btn-shop" class="btn btn-secondary">BOUTIQUE</button>
+      <button id="btn-quit" class="btn" style="border-color:#555; background:rgba(0,0,0,0.5);">QUITTER</button>
+    </div>
+  </div>
+
+  <!-- MODALE : CHARGER PARTIE -->
+  <div id="modal-load" class="modal hidden">
+    <div class="modal-box" style="max-width:520px;">
+      <h2 style="font-family:'Orbitron'; color:var(--accent); font-size:2rem; margin-bottom:15px;">SAUVEGARDES</h2>
+      <div style="background:rgba(255,255,255,0.06); padding:20px; border-radius:12px; margin-bottom:24px; border:1px solid rgba(255,255,255,0.1);">
+        <p style="font-size:1.2rem; font-weight:700;">Emplacement 1 : Ado Furax (Niveau Collège)</p>
+        <p style="color:var(--gold); font-size:1.1rem; margin-top:6px;">Meilleur temps : 01:24:12</p>
+      </div>
+      <div style="display:flex; justify-content:center; gap:16px;">
+        <button id="btn-confirm-load" class="btn">CHARGER</button>
+        <button id="btn-close-load" class="btn btn-secondary">ANNULER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE : BOUTIQUE -->
+  <div id="modal-shop" class="modal hidden">
+    <div class="modal-box">
+      <h2 style="font-family:'Orbitron'; color:var(--gold); font-size:2rem;">BOUTIQUE FURAX</h2>
+      <p style="color:#aaa; margin-top:6px;">Sélectionne ta bécane pour esquiver les pièges urbains :</p>
+      
+      <div class="shop-items">
+        <div class="shop-card selected" onclick="selectBike(0)">
+          <h3>CROSS 125</h3>
+          <p style="color:var(--accent); font-weight:700; margin:6px 0;">ÉQUIPÉE</p>
+          <small>Légère et très agile.</small>
+        </div>
+        <div class="shop-card" onclick="selectBike(1)">
+          <h3>SUPERBIKE SSB</h3>
+          <p style="color:var(--gold); font-weight:700; margin:6px 0;">DÉBLOQUÉE</p>
+          <small>Vitesse de pointe accrue.</small>
+        </div>
+        <div class="shop-card" onclick="selectBike(2)">
+          <h3>FURAX V8</h3>
+          <p style="color:var(--primary); font-weight:700; margin:6px 0;">DÉBLOQUÉE</p>
+          <small>Nitro x2 et sauts géants.</small>
+        </div>
+      </div>
+
+      <button id="btn-close-shop" class="btn btn-secondary">RETOUR</button>
+    </div>
+  </div>
+
+  <!-- 3. HUD DU JEU -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-box">
+        <div class="speed-dial"><span id="speed-val">0</span> <span>KM/H</span></div>
+        <div style="font-size:0.85rem; color:#aaa; margin-top:4px;">NITRO (SHIFT)</div>
+        <div class="nitro-gauge">
+          <div id="nitro-bar" class="nitro-fill"></div>
+        </div>
+      </div>
+
+      <div class="hud-box progress-container">
+        <div style="display:flex; justify-content:space-between; font-weight:700;">
+          <span>COLLÈGE DANS :</span>
+          <span id="dist-val" style="color:var(--gold);">1200 M</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="progress-bar" class="progress-fill"></div>
+        </div>
+        <div style="margin-top:6px; font-size:0.9rem; color:#ff3b00; font-weight:700;">
+          SONNERIE : <span id="timer-val">60</span>s
+        </div>
+      </div>
+    </div>
+
+    <div id="alert-banner" class="alert-banner">ATTENTION !</div>
+
+    <!-- Commandes tactiles mobiles -->
+    <div class="mobile-controls">
+      <div style="display:flex; gap:12px;">
+        <div class="m-btn" id="m-left">◀</div>
+        <div class="m-btn" id="m-right">▶</div>
+      </div>
+      <div style="display:flex; gap:12px;">
+        <div class="m-btn" id="m-jump" style="background:var(--primary);">▲</div>
+        <div class="m-btn" id="m-nitro" style="background:var(--accent);">⚡</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. ÉCRAN FIN DE PARTIE -->
+  <div id="screen-gameover" class="screen hidden" style="background:rgba(0,0,0,0.92);">
+    <div class="menu-card">
+      <h2 id="end-title" style="color:var(--primary);">RETARD CONFIRMÉ !</h2>
+      <p id="end-desc" style="font-size:1.2rem; color:#ccc; margin-bottom:15px;">Tu as été collé pour être arrivé après la fermeture de la grille.</p>
+      <button id="btn-replay" class="btn">RÉESSAYER</button>
+      <button id="btn-end-menu" class="btn btn-secondary">MENU PRINCIPAL</button>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. VISUEL DE SECOURS (Si motor_furax.jpg n'est pas encore placé)
+       ========================================================================= */
+    function generateFallbackSplash(img) {
+      const c = document.createElement('canvas');
+      c.width = 760; c.height = 480;
+      const ctx = c.getContext('2d');
+      const g = ctx.createLinearGradient(0,0,0,480);
+      g.addColorStop(0, '#090a14');
+      g.addColorStop(0.7, '#240046');
+      g.addColorStop(1, '#ff3b00');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,760,480);
+      ctx.fillStyle = '#00e5ff';
+      ctx.font = '900 48px Orbitron';
+      ctx.textAlign = 'center';
+      ctx.fillText('MOTOR FURAX', 380, 220);
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px Rajdhani';
+      ctx.fillText('[ Placez "motor_furax.jpg" dans ce dossier ]', 380, 270);
+      img.src = c.toDataURL();
+    }
+
+    /* =========================================================================
+       2. MOTEUR AUDIO SYNTHÉTISÉ (Zéro fichier externe)
+       ========================================================================= */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.engineOsc = null;
+        this.engineGain = null;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.engineOsc = this.ctx.createOscillator();
+          this.engineGain = this.ctx.createGain();
+          this.engineOsc.type = 'sawtooth';
+          this.engineOsc.frequency.setValueAtTime(60, this.ctx.currentTime);
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(320, this.ctx.currentTime);
+
+          this.engineGain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+          this.engineOsc.connect(filter);
+          filter.connect(this.engineGain);
+          this.engineGain.connect(this.ctx.destination);
+          this.engineOsc.start();
+        }
+      }
+      setEnginePitch(ratio) {
+        if (!this.engineOsc || !this.ctx) return;
+        this.engineOsc.frequency.setTargetAtTime(60 + ratio * 190, this.ctx.currentTime, 0.05);
+      }
+      playJump() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(700, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+      }
+      playCrash() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(90, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(20, this.ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.35);
+      }
+      playHeart() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(840, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+      }
+    }
+    const audio = new SoundEngine();
+
+    /* =========================================================================
+       3. GESTION DES COMMANDES & NAVIGATION
+       ========================================================================= */
+    const screenHome = document.getElementById('screen-home');
+    const screenMenu = document.getElementById('screen-menu');
+    const hud = document.getElementById('hud');
+    const modalShop = document.getElementById('modal-shop');
+    const modalLoad = document.getElementById('modal-load');
+    const screenGameOver = document.getElementById('screen-gameover');
+
+    // Clic sur "JOUER" sur l'écran d'accueil -> Affiche le Menu Principal
+    document.getElementById('btn-play-home').addEventListener('click', () => {
+      audio.init();
+      screenHome.classList.add('hidden');
+      screenMenu.classList.remove('hidden');
+    });
+
+    // Menu Principal -> Débuter partie
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+      screenMenu.classList.add('hidden');
+      hud.classList.remove('hidden');
+      resetGame();
+      state.running = true;
+    });
+
+    // Menu Principal -> Ouvrir Charger Partie
+    document.getElementById('btn-load-game').addEventListener('click', () => {
+      modalLoad.classList.remove('hidden');
+    });
+
+    // Modale Charger Partie -> Bouton Charger
+    document.getElementById('btn-confirm-load').addEventListener('click', () => {
+      modalLoad.classList.add('hidden');
+      screenMenu.classList.add('hidden');
+      hud.classList.remove('hidden');
+      resetGame();
+      state.running = true;
+    });
+
+    // Modale Charger Partie -> Bouton Annuler (fermeture)
+    document.getElementById('btn-close-load').addEventListener('click', () => {
+      modalLoad.classList.add('hidden');
+    });
+
+    // Menu Principal -> Ouvrir Boutique
+    document.getElementById('btn-shop').addEventListener('click', () => {
+      modalShop.classList.remove('hidden');
+    });
+
+    // Modale Boutique -> Bouton Retour
+    document.getElementById('btn-close-shop').addEventListener('click', () => {
+      modalShop.classList.add('hidden');
+    });
+
+    // Menu Principal -> Quitter (retour accueil)
+    document.getElementById('btn-quit').addEventListener('click', () => {
+      screenMenu.classList.add('hidden');
+      screenHome.classList.remove('hidden');
+    });
+
+    // Rejouer après fin de partie
+    document.getElementById('btn-replay').addEventListener('click', () => {
+      screenGameOver.classList.add('hidden');
+      hud.classList.remove('hidden');
+      resetGame();
+      state.running = true;
+    });
+
+    // Fin de partie -> Retour Menu
+    document.getElementById('btn-end-menu').addEventListener('click', () => {
+      screenGameOver.classList.add('hidden');
+      screenMenu.classList.remove('hidden');
+    });
+
+    function selectBike(index) {
+      document.querySelectorAll('.shop-card').forEach((card, i) => {
+        card.classList.toggle('selected', i === index);
+      });
+      if (index === 1) { state.maxSpeed = 105; state.acceleration = 55; }
+      else if (index === 2) { state.maxSpeed = 125; state.acceleration = 70; }
+      else { state.maxSpeed = 85; state.acceleration = 45; }
+    }
+
+    /* =========================================================================
+       4. MOTEUR 3D ISOMÉTRIQUE PAPERBOY NEXT-GEN (Three.js)
+       ========================================================================= */
+    let scene, camera, renderer;
+    let player, playerBike;
+    let chunks = [];
+    let obstacles = [];
+    const ROAD_WIDTH = 18;
+    const CHUNK_LEN = 160;
+    const TOTAL_DISTANCE = 1200; // mètres
+
+    const state = {
+      running: false,
+      speed: 0,
+      maxSpeed: 85,
+      acceleration: 45,
+      brakeDecel: 70,
+      turnSpeed: 17,
+      jumpVelocity: 0,
+      isGrounded: true,
+      nitro: 100,
+      isNitro: false,
+      distanceTraveled: 0,
+      timeRemaining: 60
+    };
+
+    const keys = { up: false, down: false, left: false, right: false, jump: false, nitro: false };
+
+    function init3D() {
+      const container = document.getElementById('canvas-container');
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x7fb2d9);
+      scene.fog = new THREE.FogExp2(0x7fb2d9, 0.007);
+
+      // Caméra vue isométrique plongeante
+      const aspect = window.innerWidth / window.innerHeight;
+      camera = new THREE.PerspectiveCamera(45, aspect, 0.5, 600);
+      camera.position.set(16, 24, 26);
+      camera.lookAt(0, 0, -8);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Lumière du soleil et ombres
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444455, 0.7);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffaed, 1.2);
+      dirLight.position.set(30, 60, 20);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      const d = 40;
+      dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
+      scene.add(dirLight);
+
+      createPlayer();
+
+      // Génération de 4 blocs de ville
+      for (let i = 0; i < 4; i++) {
+        createCityChunk(-i * CHUNK_LEN);
+      }
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    }
+
+    /* CRÉATION MOTO & GARÇON */
+    function createPlayer() {
+      player = new THREE.Group();
+      playerBike = new THREE.Group();
+      player.add(playerBike);
+
+      const red = new THREE.MeshStandardMaterial({ color: 0xff2a00, roughness: 0.3, metalness: 0.6 });
+      const rubber = new THREE.MeshStandardMaterial({ color: 0x151515 });
+      const chrome = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9 });
+
+      // Roues
+      const wheelGeom = new THREE.CylinderGeometry(0.7, 0.7, 0.35, 20);
+      wheelGeom.rotateZ(Math.PI / 2);
+      const frontWheel = new THREE.Mesh(wheelGeom, rubber);
+      frontWheel.position.set(0, 0.7, -1.6);
+      playerBike.add(frontWheel);
+
+      const rearWheel = new THREE.Mesh(wheelGeom, rubber);
+      rearWheel.position.set(0, 0.7, 1.4);
+      playerBike.add(rearWheel);
+
+      // Cadre
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 2.2), red);
+      frame.position.set(0, 1.2, 0);
+      playerBike.add(frame);
+
+      // Guidon
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.8, 8), chrome);
+      bar.rotateZ(Math.PI / 2);
+      bar.position.set(0, 1.9, -1.1);
+      playerBike.add(bar);
+
+      // Le pilote (Ado avec sac à dos)
+      const boy = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.6), new THREE.MeshStandardMaterial({ color: 0x1d3557 }));
+      body.position.set(0, 2.0, 0.1);
+      body.rotation.x = -0.3;
+      boy.add(body);
+
+      const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.48, 16, 16), new THREE.MeshStandardMaterial({ color: 0xf1faee }));
+      helmet.position.set(0, 2.8, -0.25);
+      boy.add(helmet);
+
+      const bag = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.4), new THREE.MeshStandardMaterial({ color: 0xe63946 }));
+      bag.position.set(0, 2.1, 0.55);
+      bag.rotation.x = -0.3;
+      boy.add(bag);
+
+      playerBike.add(boy);
+      scene.add(player);
+    }
+
+    /* GÉNÉRATION MODULAIRE DE VILLE */
+    function createCityChunk(zOffset) {
+      const chunk = new THREE.Group();
+      chunk.position.z = zOffset;
+
+      // Chaussée
+      const road = new THREE.Mesh(
+        new THREE.PlaneGeometry(ROAD_WIDTH, CHUNK_LEN),
+        new THREE.MeshStandardMaterial({ color: 0x22252a, roughness: 0.85 })
+      );
+      road.rotation.x = -Math.PI / 2;
+      chunk.add(road);
+
+      // Trottoirs
+      const swGeom = new THREE.BoxGeometry(8, 0.4, CHUNK_LEN);
+      const swMat = new THREE.MeshStandardMaterial({ color: 0x8d99ae });
+      const leftWalk = new THREE.Mesh(swGeom, swMat);
+      leftWalk.position.set(-(ROAD_WIDTH / 2 + 4), 0.2, 0);
+      chunk.add(leftWalk);
+
+      const rightWalk = new THREE.Mesh(swGeom, swMat);
+      rightWalk.position.set((ROAD_WIDTH / 2 + 4), 0.2, 0);
+      chunk.add(rightWalk);
+
+      // Immeubles et décors urbains
+      const colors = [0xdad7cd, 0xa3b18a, 0x588157, 0x4a4e69, 0xffbe0b];
+      for (let side = -1; side <= 1; side += 2) {
+        for (let z = -CHUNK_LEN/2 + 15; z < CHUNK_LEN/2; z += 30) {
+          const h = 18 + Math.random() * 25;
+          const b = new THREE.Mesh(
+            new THREE.BoxGeometry(16, h, 24),
+            new THREE.MeshStandardMaterial({ color: colors[Math.floor(Math.random() * colors.length)] })
+          );
+          b.position.set(side * (ROAD_WIDTH / 2 + 16), h / 2, z);
+          chunk.add(b);
+        }
+      }
+
+      spawnObstacles(chunk, zOffset);
+      scene.add(chunk);
+      chunks.push(chunk);
+    }
+
+    /* OBSTACLES SPÉCIFIQUES DEMANDÉS */
+    function spawnObstacles(chunk, chunkZ) {
+      const count = 4;
+      for (let i = 0; i < count; i++) {
+        const localZ = -CHUNK_LEN / 2 + (i + 1) * (CHUNK_LEN / (count + 1));
+        const laneX = (Math.random() - 0.5) * (ROAD_WIDTH - 5);
+        const r = Math.random();
+        let obs;
+
+        if (r < 0.25) {
+          obs = createSSBTruck(); // CAMION AVEC LOGO SSB
+        } else if (r < 0.45) {
+          obs = createManifestants(); // MANIFESTANTS
+        } else if (r < 0.65) {
+          obs = createTheCat(); // CHAT QUI TRAVERSE
+        } else if (r < 0.85) {
+          obs = createDad(); // LE PÈRE
+        } else {
+          obs = createGirlfriend(); // LA COPINE
+        }
+
+        obs.position.set(laneX, 0, localZ);
+        chunk.add(obs);
+
+        obstacles.push({
+          mesh: obs,
+          chunkZ: chunkZ,
+          type: obs.userData.type,
+          boxSize: obs.userData.hitbox
+        });
+      }
+    }
+
+    function createSSBTruck() {
+      const truck = new THREE.Group();
+      truck.userData.type = 'TRUCK_SSB';
+      truck.userData.hitbox = { x: 3.5, y: 3.5, z: 7.5 };
+
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3, 3), new THREE.MeshStandardMaterial({ color: 0x003566 }));
+      cabin.position.set(0, 1.8, -2.2);
+      truck.add(cabin);
+
+      // Texture canvas logo SSB
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 128;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,256,128);
+      ctx.fillStyle = '#ff0033'; ctx.fillRect(0,90,256,38);
+      ctx.fillStyle = '#000814'; ctx.font = 'bold 70px Orbitron'; ctx.textAlign = 'center';
+      ctx.fillText('SSB', 128, 70);
+
+      const trailerMat = new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(c) });
+      const trailer = new THREE.Mesh(new THREE.BoxGeometry(3.4, 4.2, 5.8), trailerMat);
+      trailer.position.set(0, 2.4, 2);
+      truck.add(trailer);
+      return truck;
+    }
+
+    function createManifestants() {
+      const group = new THREE.Group();
+      group.userData.type = 'PROTESTERS';
+      group.userData.hitbox = { x: 3.5, y: 2, z: 2 };
+      for (let j = -1; j <= 1; j++) {
+        const man = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.6), new THREE.MeshStandardMaterial({ color: 0x222 }));
+        man.position.set(j * 1.1, 0.8, 0);
+        group.add(man);
+
+        const sign = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.7, 0.05), new THREE.MeshStandardMaterial({ color: 0xffbe0b }));
+        sign.position.set(j * 1.1, 2.2, 0);
+        group.add(sign);
+      }
+      return group;
+    }
+
+    function createTheCat() {
+      const cat = new THREE.Group();
+      cat.userData.type = 'CAT';
+      cat.userData.hitbox = { x: 1.2, y: 0.6, z: 1.2 };
+      cat.userData.dir = Math.random() > 0.5 ? 1 : -1;
+      const ginger = new THREE.MeshStandardMaterial({ color: 0xe07a5f });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.9), ginger);
+      body.position.y = 0.3;
+      cat.add(body);
+      return cat;
+    }
+
+    function createDad() {
+      const dad = new THREE.Group();
+      dad.userData.type = 'DAD';
+      dad.userData.hitbox = { x: 2.5, y: 1.8, z: 4.5 };
+      const car = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.5, 4.5), new THREE.MeshStandardMaterial({ color: 0x9e2a2b }));
+      car.position.y = 0.8;
+      dad.add(car);
+      return dad;
+    }
+
+    function createGirlfriend() {
+      const gf = new THREE.Group();
+      gf.userData.type = 'GIRLFRIEND';
+      gf.userData.hitbox = { x: 1.8, y: 2, z: 1.8 };
+      const dress = new THREE.Mesh(new THREE.ConeGeometry(0.6, 1.5, 12), new THREE.MeshStandardMaterial({ color: 0xff4d6d }));
+      dress.position.y = 0.8;
+      gf.add(dress);
+      return gf;
+    }
+
+    /* =========================================================================
+       5. BOUCLE DE JEU & MISE À JOUR
+       ========================================================================= */
+    let lastTime = performance.now();
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+
+      if (state.running) {
+        updateGame(dt);
+      }
+      renderer.render(scene, camera);
+    }
+
+    function updateGame(dt) {
+      // Accélération / Frein
+      if (keys.up) state.speed += state.acceleration * dt;
+      else if (keys.down) state.speed -= state.brakeDecel * dt;
+      else state.speed -= 15 * dt;
+
+      // Nitro
+      if (keys.nitro && state.nitro > 0) {
+        state.isNitro = true;
+        state.speed += state.acceleration * 1.6 * dt;
+        state.nitro = Math.max(0, state.nitro - 35 * dt);
+      } else {
+        state.isNitro = false;
+        state.nitro = Math.min(100, state.nitro + 10 * dt);
+      }
+
+      const topSpeed = state.isNitro ? state.maxSpeed * 1.35 : state.maxSpeed;
+      state.speed = Math.max(0, Math.min(state.speed, topSpeed));
+      audio.setEnginePitch(state.speed / state.maxSpeed);
+
+      // Virages
+      const spdRatio = state.speed / state.maxSpeed;
+      if (keys.left) {
+        player.position.x -= state.turnSpeed * dt * (0.3 + spdRatio * 0.7);
+        playerBike.rotation.z = THREE.MathUtils.lerp(playerBike.rotation.z, 0.4, 0.15);
+      } else if (keys.right) {
+        player.position.x += state.turnSpeed * dt * (0.3 + spdRatio * 0.7);
+        playerBike.rotation.z = THREE.MathUtils.lerp(playerBike.rotation.z, -0.4, 0.15);
+      } else {
+        playerBike.rotation.z = THREE.MathUtils.lerp(playerBike.rotation.z, 0, 0.15);
+      }
+      player.position.x = Math.max(-ROAD_WIDTH / 2 - 2, Math.min(ROAD_WIDTH / 2 + 2, player.position.x));
+
+      // Saut
+      if (keys.jump && state.isGrounded) {
+        state.jumpVelocity = 14;
+        state.isGrounded = false;
+        audio.playJump();
+      }
+      if (!state.isGrounded) {
+        player.position.y += state.jumpVelocity * dt;
+        state.jumpVelocity -= 36 * dt;
+        if (player.position.y <= 0) {
+          player.position.y = 0;
+          state.jumpVelocity = 0;
+          state.isGrounded = true;
+        }
+      }
+
+      // Progression
+      const move = state.speed * dt;
+      player.position.z -= move;
+      state.distanceTraveled += move;
+
+      // Caméra suit le joueur
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, player.position.x * 0.5 + 14, 0.1);
+      camera.position.z = player.position.z + 24;
+      camera.position.y = player.position.y * 0.4 + 22;
+
+      // Recyclage des blocs de ville
+      chunks.forEach(chunk => {
+        if (chunk.position.z > player.position.z + CHUNK_LEN) {
+          chunk.position.z -= chunks.length * CHUNK_LEN;
+          clearAndRespawn(chunk);
+        }
+      });
+
+      // Animation du chat
+      obstacles.forEach(o => {
+        if (o.type === 'CAT') {
+          o.mesh.position.x += o.mesh.userData.dir * 4.5 * dt;
+          if (Math.abs(o.mesh.position.x) > ROAD_WIDTH / 2) o.mesh.userData.dir *= -1;
+        }
+      });
+
+      // Collisions
+      checkCollisions();
+
+      // HUD
+      const kmh = Math.floor((state.speed / state.maxSpeed) * 115);
+      document.getElementById('speed-val').innerText = kmh;
+      document.getElementById('nitro-bar').style.width = state.nitro + '%';
+
+      const remain = Math.max(0, Math.floor(TOTAL_DISTANCE - state.distanceTraveled));
+      document.getElementById('dist-val').innerText = remain + ' M';
+      document.getElementById('progress-bar').style.width = Math.min(100, (state.distanceTraveled / TOTAL_DISTANCE) * 100) + '%';
+
+      state.timeRemaining -= dt;
+      document.getElementById('timer-val').innerText = Math.max(0, Math.ceil(state.timeRemaining));
+
+      if (state.timeRemaining <= 0) {
+        endGame(false, "LA SONNERIE A RETENTI !", "Tu es en retard ! Collé 2h ce samedi.");
+      }
+      if (state.distanceTraveled >= TOTAL_DISTANCE) {
+        endGame(true, "ARRIVÉ À L'HEURE !", "Victoire ! Tu as franchi le portail avant la sonnerie !");
+      }
+    }
+
+    function checkCollisions() {
+      const px = player.position.x;
+      const pz = player.position.z;
+      const py = player.position.y;
+
+      obstacles.forEach(o => {
+        const wp = new THREE.Vector3();
+        o.mesh.getWorldPosition(wp);
+        const hx = o.boxSize.x / 2;
+        const hz = o.boxSize.z / 2;
+
+        if (px + 0.7 > wp.x - hx && px - 0.7 < wp.x + hx &&
+            pz + 1.2 > wp.z - hz && pz - 1.2 < wp.z + hz) {
+          
+          if (py > o.boxSize.y && o.type !== 'TRUCK_SSB') return; // Saut réussi !
+
+          // Impact
+          if (o.type === 'TRUCK_SSB') {
+            audio.playCrash();
+            state.speed = 0;
+            triggerAlert("CRASH DANS LE CAMION SSB !");
+          } else if (o.type === 'PROTESTERS') {
+            audio.playCrash();
+            state.speed *= 0.2;
+            triggerAlert("BLOQUÉ PAR LES MANIFESTANTS !");
+          } else if (o.type === 'DAD') {
+            audio.playCrash();
+            state.speed = 10;
+            triggerAlert("LE PÈRE T'A RATTRAPÉ !");
+          } else if (o.type === 'GIRLFRIEND') {
+            audio.playHeart();
+            state.speed *= 0.5;
+            triggerAlert("DISTRAIT PAR TA COPINE ! 💖");
+          } else if (o.type === 'CAT') {
+            state.speed *= 0.7;
+            triggerAlert("CHAT ÉVITÉ DE JUSTESSE ! 🐱");
+          }
+        }
+      });
+    }
+
+    function triggerAlert(t) {
+      const el = document.getElementById('alert-banner');
+      el.innerText = t;
+      el.style.opacity = '1';
+      setTimeout(() => el.style.opacity = '0', 1300);
+    }
+
+    function clearAndRespawn(chunk) {
+      for (let i = chunk.children.length - 1; i >= 0; i--) {
+        const c = chunk.children[i];
+        if (c.userData && c.userData.type) chunk.remove(c);
+      }
+      obstacles = obstacles.filter(o => o.chunkZ !== chunk.position.z);
+      spawnObstacles(chunk, chunk.position.z);
+    }
+
+    function resetGame() {
+      state.speed = 0;
+      state.distanceTraveled = 0;
+      state.timeRemaining = 60;
+      state.nitro = 100;
+      state.jumpVelocity = 0;
+      state.isGrounded = true;
+      player.position.set(0, 0, 0);
+      playerBike.rotation.set(0, 0, 0);
+    }
+
+    function endGame(win, title, desc) {
+      state.running = false;
+      hud.classList.add('hidden');
+      document.getElementById('end-title').innerText = title;
+      document.getElementById('end-title').style.color = win ? 'var(--gold)' : 'var(--primary)';
+      document.getElementById('end-desc').innerText = desc;
+      screenGameOver.classList.remove('hidden');
+    }
+
+    /* COMMANDES CLAVIER & TACTILES */
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp','KeyW','KeyZ'].includes(e.code)) keys.up = true;
+      if (['ArrowDown','KeyS'].includes(e.code)) keys.down = true;
+      if (['ArrowLeft','KeyA','KeyQ'].includes(e.code)) keys.left = true;
+      if (['ArrowRight','KeyD'].includes(e.code)) keys.right = true;
+      if (e.code === 'Space') keys.jump = true;
+      if (['ShiftLeft','ShiftRight'].includes(e.code)) keys.nitro = true;
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (['ArrowUp','KeyW','KeyZ'].includes(e.code)) keys.up = false;
+      if (['ArrowDown','KeyS'].includes(e.code)) keys.down = false;
+      if (['ArrowLeft','KeyA','KeyQ'].includes(e.code)) keys.left = false;
+      if (['ArrowRight','KeyD'].includes(e.code)) keys.right = false;
+      if (e.code === 'Space') keys.jump = false;
+      if (['ShiftLeft','ShiftRight'].includes(e.code)) keys.nitro = false;
+    });
+
+    const bindTouch = (id, key) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+      el.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+    };
+    bindTouch('m-left', 'left');
+    bindTouch('m-right', 'right');
+    bindTouch('m-jump', 'jump');
+    bindTouch('m-nitro', 'nitro');
+
+    // Lancement immédiat
+    window.addEventListener('DOMContentLoaded', () => {
+      init3D();
+      animate(performance.now());
+    });
+  </script>
+</body>
+</html>

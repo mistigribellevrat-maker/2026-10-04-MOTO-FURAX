@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MOTOR FURAX - Course Urbaine Isométrique</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- ÉCRAN 1 : ACCUEIL -->
+        <section id="screen-home" class="screen active">
+            <div class="home-bg-slot">
+                <!-- Emplacement pour image .jpg configurable -->
+                <img id="custom-home-bg" src="img/bg.jpg" alt="Motor Furax Artwork" onerror="this.classList.add('missing')">
+                <div class="home-gradient-overlay"></div>
+            </div>
+            
+            <div class="home-content">
+                <div class="logo-wrapper">
+                    <span class="badge-sub">COURSE CONTRE LA SONNERIE</span>
+                    <h1 class="glitch-title" data-text="MOTOR FURAX">MOTOR FURAX</h1>
+                    <p class="tagline">8H28... Les grilles du collège ferment dans 60 secondes. Fonce !</p>
+                </div>
+
+                <div class="home-actions">
+                    <button id="btn-home-play" class="btn btn-primary pulse">
+                        <span class="btn-icon">⚡</span>
+                        <span class="btn-text">JOUER</span>
+                    </button>
+                </div>
+            </div>
+            <div class="footer-hint">Vue 3D Isométrique • Rendu Rétro-Arcade Haute Définition</div>
+        </section>
+
+        <!-- ÉCRAN 2 : MENU PRINCIPAL -->
+        <section id="screen-menu" class="screen">
+            <div class="menu-backdrop"></div>
+            <div class="menu-panel">
+                <header class="menu-header">
+                    <h2>MENU PRINCIPAL</h2>
+                    <div class="menu-line"></div>
+                </header>
+
+                <nav class="menu-nav">
+                    <button id="btn-menu-start" class="btn btn-menu">
+                        <span class="btn-menu-tag">01</span>
+                        <span class="btn-menu-title">Débuter partie</span>
+                        <span class="btn-arrow">▶</span>
+                    </button>
+
+                    <button id="btn-menu-load" class="btn btn-menu">
+                        <span class="btn-menu-tag">02</span>
+                        <span class="btn-menu-title">Charger partie</span>
+                        <span class="btn-arrow">🔒</span>
+                    </button>
+
+                    <button id="btn-menu-shop" class="btn btn-menu">
+                        <span class="btn-menu-tag">03</span>
+                        <span class="btn-menu-title">Boutique</span>
+                        <span class="btn-arrow">⭐</span>
+                    </button>
+
+                    <button id="btn-menu-quit" class="btn btn-menu btn-danger">
+                        <span class="btn-menu-tag">04</span>
+                        <span class="btn-menu-title">Quitter</span>
+                        <span class="btn-arrow">✖</span>
+                    </button>
+                </nav>
+            </div>
+        </section>
+
+        <!-- ÉCRAN 3 : JEU ACTIF -->
+        <section id="screen-game" class="screen">
+            <!-- CANVAS MOTEUR ISOMÉTRIQUE -->
+            <canvas id="game-canvas"></canvas>
+
+            <!-- INTERFACE TÊTE-HAUTE (HUD) -->
+            <header id="hud">
+                <!-- Chronomètre Collège -->
+                <div class="hud-card hud-timer">
+                    <div class="hud-label">SONNERIE DU COLLÈGE</div>
+                    <div class="hud-value-group">
+                        <span class="hud-icon">⏰</span>
+                        <span id="hud-time" class="hud-timer-digits">01:00.00</span>
+                    </div>
+                </div>
+
+                <!-- Compteur de Vitesse -->
+                <div class="hud-card hud-speedo">
+                    <div class="speed-gauge-wrap">
+                        <div class="speed-radial">
+                            <span id="hud-speed" class="speed-val">0</span>
+                            <span class="speed-unit">KM/H</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Jauges Intégrité & Nitro -->
+                <div class="hud-card hud-bars">
+                    <div class="gauge-row">
+                        <span class="bar-tag">INTÉGRITÉ</span>
+                        <div class="progress-track">
+                            <div id="bar-health" class="progress-fill health-fill" style="width: 100%;"></div>
+                        </div>
+                        <span id="txt-health" class="bar-pct">100%</span>
+                    </div>
+
+                    <div class="gauge-row">
+                        <span class="bar-tag">NITRO</span>
+                        <div class="progress-track">
+                            <div id="bar-nitro" class="progress-fill nitro-fill" style="width: 100%;"></div>
+                        </div>
+                        <span id="txt-nitro" class="bar-pct">100%</span>
+                    </div>
+                </div>
+
+                <!-- Radar de Proximité du Père -->
+                <div class="hud-card hud-radar">
+                    <div class="hud-label">POURSUITE DU DARON</div>
+                    <div class="radar-track">
+                        <div id="radar-dad" class="radar-entity dad-marker" title="Le Père">👨‍🦰</div>
+                        <div class="radar-line"></div>
+                        <div class="radar-entity bike-marker" title="Toi">🏍️</div>
+                    </div>
+                    <div id="radar-warning" class="radar-alert">DISTANCÉ</div>
+                </div>
+
+                <!-- Contrôles audio & pause -->
+                <div class="hud-quick-tools">
+                    <button id="btn-audio-toggle" class="btn-hud" title="Couper/Activer le son">🔊</button>
+                    <button id="btn-pause-toggle" class="btn-hud" title="Mettre en pause">⏸</button>
+                </div>
+            </header>
+
+            <!-- Guide des touches en incrustation -->
+            <div id="hud-controls-hint">
+                <span>[Z / ↑] Accélérer</span>
+                <span>[S / ↓] Freiner (Prioritaire)</span>
+                <span>[Q / D / ← / →] Tourner</span>
+                <span>[ESPACE] Sauter</span>
+                <span>[SHIFT] Nitro</span>
+            </div>
+
+            <!-- OVERLAY DE PAUSE -->
+            <div id="overlay-pause" class="game-overlay">
+                <div class="overlay-card">
+                    <h2>PARTIE EN PAUSE</h2>
+                    <p>Le temps et la moto sont figés.</p>
+                    <div class="overlay-buttons">
+                        <button id="btn-pause-resume" class="btn btn-primary">Reprendre</button>
+                        <button id="btn-pause-restart" class="btn btn-menu">Recommencer</button>
+                        <button id="btn-pause-menu" class="btn btn-danger">Menu Principal</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OVERLAY GAME OVER -->
+            <div id="overlay-gameover" class="game-overlay">
+                <div class="overlay-card failure-card">
+                    <h2 id="go-title" class="danger-title">ÉCHEC DE LA MISSION</h2>
+                    <p id="go-reason" class="overlay-desc">Tu es arrivé trop tard !</p>
+                    <div class="stat-summary">
+                        <div>Vitesse max : <span id="go-speed">0</span> km/h</div>
+                        <div>Distance couverte : <span id="go-dist">0</span> m</div>
+                    </div>
+                    <div class="overlay-buttons">
+                        <button id="btn-go-retry" class="btn btn-primary">Réessayer</button>
+                        <button id="btn-go-menu" class="btn btn-menu">Retour Menu</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OVERLAY VICTOIRE -->
+            <div id="overlay-victory" class="game-overlay">
+                <div class="overlay-card victory-card">
+                    <h2 class="success-title">À L'HEURE AU COLLÈGE !</h2>
+                    <p class="overlay-desc">Tu franchis les portes avant la première sonnerie !</p>
+                    <div class="stat-summary">
+                        <div>Temps restant : <span id="vic-time">00:00</span></div>
+                        <div>Santé moto conservée : <span id="vic-health">0%</span></div>
+                        <div>Rang scolaire : <span id="vic-rank" class="rank-badge">S</span></div>
+                    </div>
+                    <div class="overlay-buttons">
+                        <button id="btn-vic-replay" class="btn btn-primary">Rejouer</button>
+                        <button id="btn-vic-menu" class="btn btn-menu">Retour Menu</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MODAL : CHARGER PARTIE (Interface d'attente cohérente) -->
+        <div id="modal-load" class="modal-dialog">
+            <div class="modal-box">
+                <h3>CHARGER UNE SAUVEGARDE</h3>
+                <p>Synchronisation avec le casier scolaire en cours...</p>
+                <div class="save-slot empty">Slot 01 - Emplacement libre (Niveau 1)</div>
+                <div class="save-slot empty">Slot 02 - Emplacement libre</div>
+                <div class="modal-actions">
+                    <button class="btn btn-menu btn-close-modal" data-target="modal-load">Fermer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL : BOUTIQUE (Interface d'attente cohérente) -->
+        <div id="modal-shop" class="modal-dialog">
+            <div class="modal-box shop-box">
+                <h3>GARAGE & BOUTIQUE FURAX</h3>
+                <p>Débloque des pièces haute performance en arrivant à l'heure !</p>
+                <div class="shop-grid">
+                    <div class="shop-item locked">
+                        <div class="item-icon">🪖</div>
+                        <div class="item-name">Casque Carbone</div>
+                        <div class="item-tag">Niveau 2 requis</div>
+                    </div>
+                    <div class="shop-item locked">
+                        <div class="item-icon">⚡</div>
+                        <div class="item-name">Injecteur Nitro V8</div>
+                        <div class="item-tag">Niveau 3 requis</div>
+                    </div>
+                    <div class="shop-item locked">
+                        <div class="item-icon">🛵</div>
+                        <div class="item-name">Furax HyperSport</div>
+                        <div class="item-tag">Mention Très Bien requise</div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-menu btn-close-modal" data-target="modal-shop">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,713 @@
+/* ==========================================================================
+   MOTOR FURAX - FEUILLE DE STYLE PRINCIPALE
+   Standard Visuel Rétro-Arcade Urbain Haut de Gamme
+   ========================================================================== */
+
+:root {
+    --bg-dark: #07090e;
+    --primary: #ff0055;
+    --primary-glow: rgba(255, 0, 85, 0.6);
+    --cyan: #00f0ff;
+    --cyan-glow: rgba(0, 240, 255, 0.6);
+    --nitro: #39ff14;
+    --nitro-glow: rgba(57, 255, 20, 0.6);
+    --warning: #ffcc00;
+    --text-main: #f0f4f8;
+    --text-muted: #8b9bb4;
+    --panel-bg: rgba(14, 18, 28, 0.88);
+    --panel-border: rgba(255, 255, 255, 0.12);
+    --font-heading: 'Impact', 'Montserrat', 'Arial Black', sans-serif;
+    --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--bg-dark);
+    font-family: var(--font-body);
+    color: var(--text-main);
+    touch-action: none;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ==========================================================================
+   GESTION DES ÉCRANS (MACHINE À ÉTATS)
+   ========================================================================== */
+.screen {
+    position: absolute;
+    inset: 0;
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s ease-in-out;
+}
+
+.screen.active {
+    display: flex;
+    opacity: 1;
+    pointer-events: all;
+}
+
+/* ==========================================================================
+   ÉCRAN 1 : ACCUEIL
+   ========================================================================== */
+#screen-home {
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3rem 2rem 2rem;
+    background: radial-gradient(circle at 50% 30%, #1a162b 0%, var(--bg-dark) 85%);
+}
+
+.home-bg-slot {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+}
+
+#custom-home-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(0.65) contrast(1.15) saturate(1.2);
+    transition: transform 12s ease-out;
+    transform: scale(1.04);
+}
+
+#screen-home.active #custom-home-bg {
+    transform: scale(1.12);
+}
+
+/* Fallback si l'image bg.jpg est absente */
+#custom-home-bg.missing {
+    display: none;
+}
+
+.home-gradient-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(7,9,14,0.4) 0%, rgba(7,9,14,0.85) 75%, var(--bg-dark) 100%),
+                radial-gradient(ellipse at center, transparent 30%, var(--bg-dark) 90%);
+}
+
+.home-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-top: 5vh;
+}
+
+.badge-sub {
+    display: inline-block;
+    padding: 0.35rem 1.2rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+    letter-spacing: 0.25em;
+    color: var(--cyan);
+    background: rgba(0, 240, 255, 0.1);
+    border: 1px solid var(--cyan);
+    border-radius: 999px;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 0 15px var(--cyan-glow);
+}
+
+.glitch-title {
+    font-family: var(--font-heading);
+    font-size: clamp(3.5rem, 9vw, 8rem);
+    text-transform: uppercase;
+    line-height: 0.95;
+    letter-spacing: 0.05em;
+    color: #fff;
+    text-shadow: 
+        0 0 10px var(--primary-glow),
+        3px 3px 0 var(--primary),
+        -3px -3px 0 var(--cyan);
+    margin-bottom: 1rem;
+    font-style: italic;
+}
+
+.tagline {
+    font-size: clamp(1rem, 2vw, 1.35rem);
+    color: var(--text-muted);
+    max-width: 600px;
+    margin-bottom: 3.5rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.footer-hint {
+    position: relative;
+    z-index: 1;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.4);
+    text-transform: uppercase;
+}
+
+/* ==========================================================================
+   BOUTONS ET INTERFACES
+   ========================================================================== */
+.btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.1rem 3rem;
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary) 0%, #b3003b 100%);
+    box-shadow: 0 4px 25px var(--primary-glow);
+}
+
+.btn-primary:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 8px 35px rgba(255, 0, 85, 0.85);
+}
+
+.btn-primary:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+.pulse {
+    animation: pulseGlow 2s infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 20px var(--primary-glow); }
+    50% { box-shadow: 0 0 45px rgba(255, 0, 85, 0.95); }
+}
+
+/* ==========================================================================
+   ÉCRAN 2 : MENU PRINCIPAL
+   ========================================================================== */
+#screen-menu {
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at 50% 50%, #151a28 0%, #080a10 100%);
+}
+
+.menu-backdrop {
+    position: absolute;
+    inset: 0;
+    background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    transform: perspective(600px) rotateX(45deg);
+    opacity: 0.6;
+}
+
+.menu-panel {
+    position: relative;
+    z-index: 1;
+    width: 90%;
+    max-width: 520px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(16px);
+    border-radius: 12px;
+    padding: 2.5rem;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 30px rgba(0,240,255,0.1);
+}
+
+.menu-header h2 {
+    font-family: var(--font-heading);
+    font-size: 2.2rem;
+    letter-spacing: 0.06em;
+    font-style: italic;
+    color: #fff;
+    margin-bottom: 0.5rem;
+}
+
+.menu-line {
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--cyan) 100%);
+    margin-bottom: 2rem;
+    border-radius: 2px;
+}
+
+.menu-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.btn-menu {
+    width: 100%;
+    justify-content: space-between;
+    padding: 1.1rem 1.4rem;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 1.1rem;
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+
+.btn-menu:hover {
+    background: rgba(0, 240, 255, 0.12);
+    border-color: var(--cyan);
+    transform: translateX(6px);
+    box-shadow: 0 0 20px rgba(0,240,255,0.25);
+}
+
+.btn-menu-tag {
+    font-family: var(--font-heading);
+    color: var(--cyan);
+    font-size: 1rem;
+    margin-right: 0.8rem;
+}
+
+.btn-danger:hover {
+    background: rgba(255, 0, 85, 0.15);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(255,0,85,0.3);
+}
+
+/* ==========================================================================
+   ÉCRAN 3 : JEU ACTIF & HUD
+   ========================================================================== */
+#screen-game {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #0b0e14;
+}
+
+#game-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 1.2rem 1.8rem;
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr 1.5fr 1.2fr auto;
+    gap: 1.2rem;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.hud-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    padding: 0.75rem 1.1rem;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.hud-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+}
+
+/* Chrono */
+.hud-value-group {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.hud-icon {
+    font-size: 1.2rem;
+}
+
+.hud-timer-digits {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    letter-spacing: 0.05em;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.hud-timer-digits.urgent {
+    color: var(--primary);
+    animation: flashAlert 0.5s infinite alternate;
+}
+
+@keyframes flashAlert {
+    from { text-shadow: 0 0 5px var(--primary); }
+    to { text-shadow: 0 0 25px var(--primary); }
+}
+
+/* Compteur de vitesse */
+.speed-radial {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.3rem;
+}
+
+.speed-val {
+    font-family: var(--font-heading);
+    font-size: 2.2rem;
+    line-height: 1;
+    color: var(--cyan);
+    text-shadow: 0 0 10px var(--cyan-glow);
+}
+
+.speed-unit {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-muted);
+}
+
+/* Jauges barres */
+.gauge-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.35rem;
+}
+
+.gauge-row:last-child {
+    margin-bottom: 0;
+}
+
+.bar-tag {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    width: 65px;
+}
+
+.progress-track {
+    flex: 1;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.progress-fill {
+    height: 100%;
+    transition: width 0.15s ease-out;
+    border-radius: 999px;
+}
+
+.health-fill {
+    background: linear-gradient(90deg, #ff0055, #ff5500);
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.nitro-fill {
+    background: linear-gradient(90deg, #00f0ff, var(--nitro));
+    box-shadow: 0 0 10px var(--nitro-glow);
+}
+
+.bar-pct {
+    font-size: 0.75rem;
+    font-weight: 700;
+    width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Radar Daron */
+.radar-track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 24px;
+    padding: 0 0.5rem;
+}
+
+.radar-line {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    background: dashed rgba(255, 255, 255, 0.2);
+    z-index: 1;
+}
+
+.radar-entity {
+    position: relative;
+    z-index: 2;
+    font-size: 1.1rem;
+    transition: transform 0.2s linear;
+}
+
+.radar-alert {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--nitro);
+    text-align: center;
+    margin-top: 0.2rem;
+}
+
+.radar-alert.danger {
+    color: var(--primary);
+    animation: flashAlert 0.4s infinite alternate;
+}
+
+/* Outils rapides HUD */
+.hud-quick-tools {
+    display: flex;
+    gap: 0.5rem;
+    pointer-events: auto;
+}
+
+.btn-hud {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    color: #fff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    transition: all 0.2s;
+}
+
+.btn-hud:hover {
+    border-color: var(--cyan);
+    transform: scale(1.08);
+}
+
+/* Indications touches */
+#hud-controls-hint {
+    position: absolute;
+    bottom: 1.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(14, 18, 28, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(8px);
+    padding: 0.5rem 1.4rem;
+    border-radius: 999px;
+    display: flex;
+    gap: 1.2rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    pointer-events: none;
+    z-index: 10;
+}
+
+#hud-controls-hint span {
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   MODALES ET OVERLAYS (PAUSE, VICTOIRE, GAMEOVER)
+   ========================================================================== */
+.game-overlay, .modal-dialog {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 7, 12, 0.85);
+    backdrop-filter: blur(12px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.game-overlay.active, .modal-dialog.active {
+    display: flex;
+}
+
+.overlay-card, .modal-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 2.5rem;
+    max-width: 480px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 25px 70px rgba(0,0,0,0.7);
+    animation: popIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.overlay-card h2, .modal-box h3 {
+    font-family: var(--font-heading);
+    font-size: 2.4rem;
+    font-style: italic;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.8rem;
+}
+
+.danger-title {
+    color: var(--primary);
+    text-shadow: 0 0 20px var(--primary-glow);
+}
+
+.success-title {
+    color: var(--nitro);
+    text-shadow: 0 0 20px var(--nitro-glow);
+}
+
+.overlay-desc {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    margin-bottom: 1.8rem;
+}
+
+.stat-summary {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    font-size: 0.95rem;
+}
+
+.stat-summary span {
+    font-weight: 800;
+    color: #fff;
+}
+
+.rank-badge {
+    color: var(--warning) !important;
+    font-size: 1.3rem;
+}
+
+.overlay-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+/* Contenu Modales Attente */
+.save-slot {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    margin: 0.8rem 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+    margin: 1.5rem 0;
+}
+
+.shop-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 1rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.shop-item.locked {
+    opacity: 0.6;
+}
+
+.item-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.item-name {
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+}
+
+.item-tag {
+    font-size: 0.65rem;
+    color: var(--primary);
+}
+
+.modal-actions {
+    margin-top: 1.5rem;
+}
+
+/* ==========================================================================
+   RESPONSIVITÉ & FORMATS DIVERS
+   ========================================================================== */
+@media (max-width: 900px) {
+    #hud {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+        gap: 0.6rem;
+    }
+    .hud-speedo {
+        order: 1;
+    }
+    .hud-timer {
+        order: 2;
+    }
+    .hud-bars {
+        grid-column: span 2;
+        order: 3;
+    }
+    .hud-radar {
+        grid-column: span 2;
+        order: 4;
+    }
+    .hud-quick-tools {
+        position: absolute;
+        top: 1.2rem;
+        right: 1.2rem;
+    }
+    #hud-controls-hint {
+        display: none;
+    }
+}
