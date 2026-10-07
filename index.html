@@ -10,6 +10,8 @@
 </head>
 <body>
 
+<div id="loading"><div class="ld-box"><div class="ld-title">MOTOR <b>FURAX</b></div><div class="ld-bar"><i id="ld-fill"></i></div><div id="ld-text">Chargement…</div></div></div>
+
 <!-- ============================ SCENE 3D ============================ -->
 <div id="webgl"></div>
 <div id="vignette"></div>
@@ -20,35 +22,55 @@
 
 <!-- ============================ HUD ============================ -->
 <div id="hud" class="hidden">
-  <div class="hud-row">
-    <div class="hud-panel panel-speed">
-      <div class="speed-main"><span id="hud-speed">0</span><small>KM/H</small></div>
-      <div class="gauge nitro">
-        <div class="gauge-label"><span>NITRO</span><span>MAJ</span></div>
-        <div class="gauge-bar"><i id="hud-nitro"></i></div>
-      </div>
+  <!-- haut : boutons, minuteur, piste -->
+  <div class="hud-top">
+    <div class="hud-btns">
+      <button id="btn-pause" class="hud-round" type="button" aria-label="Pause"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+      <button id="btn-mute" class="hud-round" type="button" aria-label="Son"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
     </div>
-
-    <div class="hud-panel panel-clock">
+    <div class="hud-clockbox">
+      <div class="clock-line">
+        <svg class="bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6zm-2 15a2 2 0 0 0 4 0z"/></svg>
+        <div class="clock-time" id="hud-clock">1:30</div>
+      </div>
       <div class="clock-label">SONNERIE DU COLLÈGE</div>
-      <div class="clock-time" id="hud-clock">1:30</div>
-      <div class="gauge-bar progress"><i id="hud-progress"></i></div>
+      <div class="track" id="hud-track">
+        <i class="fill" id="hud-progress"></i>
+        <b class="mk dad" id="mk-dad" title="Papa"></b>
+        <b class="mk bike" id="mk-bike"></b>
+        <b class="mk school"><svg viewBox="0 0 24 24"><path d="M12 3 2 9v2h20V9L12 3zM4 12v7H2v2h20v-2h-2v-7h-2v7h-3v-7h-2v7h-2v-7H9v7H6v-7H4z"/></svg></b>
+      </div>
       <div class="clock-sub"><span id="hud-dist">1500 m</span><span id="hud-mode">CAP SUR LE COLLÈGE</span></div>
     </div>
+    <div class="hud-btns hud-spacer"></div>
+  </div>
 
-    <div class="hud-panel panel-status">
-      <div class="gauge health">
-        <div class="gauge-label"><span>INTÉGRITÉ</span><span id="hud-health-num">100%</span></div>
-        <div class="gauge-bar"><i id="hud-health"></i></div>
-      </div>
-      <div class="radar">
-        <div class="radar-label"><span>POURSUITE PAPA</span><b id="hud-dad-num">-- m</b></div>
-        <div class="radar-bar" id="hud-dad-bar"><i id="hud-dad"></i></div>
-      </div>
-      <div class="hud-mini-row">
-        <button id="btn-mute" class="hud-icon-btn" type="button">SON : ON</button>
-        <button id="btn-pause" class="hud-icon-btn" type="button">PAUSE</button>
-      </div>
+  <!-- bas gauche : vitesse + nitro -->
+  <div class="hud-speed">
+    <svg viewBox="0 0 220 220" class="gauge-svg">
+      <defs>
+        <linearGradient id="gSpeed" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#22e0ff"/><stop offset=".6" stop-color="#ffc531"/><stop offset="1" stop-color="#ff4d00"/></linearGradient>
+        <linearGradient id="gNitro" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1c7bff"/><stop offset="1" stop-color="#7df0ff"/></linearGradient>
+      </defs>
+      <path class="arc-bg" pathLength="100" d="M 44 176 A 92 92 0 1 1 176 176"/>
+      <path class="arc-speed" id="hud-speed-arc" pathLength="100" d="M 44 176 A 92 92 0 1 1 176 176"/>
+      <path class="arc-bg thin" pathLength="100" d="M 62 160 A 66 66 0 1 1 158 160"/>
+      <path class="arc-nitro" id="hud-nitro-arc" pathLength="100" d="M 62 160 A 66 66 0 1 1 158 160"/>
+    </svg>
+    <div class="spd-read"><span id="hud-speed">0</span><small>KM/H</small></div>
+    <div class="nitro-read" id="hud-nitro-box"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg><b id="hud-nitro-pct">100</b><span>NITRO · MAJ</span></div>
+    <i id="hud-nitro" class="hidden"></i>
+  </div>
+
+  <!-- bas droite : integrite + papa -->
+  <div class="hud-vitals">
+    <div class="vital health" id="vital-health">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
+      <div class="vbody"><div class="vlabel"><span>INTÉGRITÉ MOTO</span><b id="hud-health-num">100%</b></div><div class="seg-bar"><i id="hud-health"></i></div></div>
+    </div>
+    <div class="vital dad" id="hud-dad-bar">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>
+      <div class="vbody"><div class="vlabel"><span>PAPA SUR TES TRACES</span><b id="hud-dad-num">-- m</b></div><div class="seg-bar"><i id="hud-dad"></i></div></div>
     </div>
   </div>
 
@@ -183,7 +205,19 @@
 <script src="js/00-utils.js"></script>
 <script src="js/01-audio.js"></script>
 <script src="js/02-state-input.js"></script>
-<script src="js/10-engine-old.js"></script>
+<script src="js/05-globals.js"></script>
+<script src="js/10-render.js"></script>
+<script src="js/12-lighting.js"></script>
+<script src="js/20-modelkit.js"></script>
+<script src="js/21-textures.js"></script>
+<script src="js/22-buildings.js"></script>
+<script src="js/23-props.js"></script>
+<script src="js/24-characters.js"></script>
+<script src="js/25-vehicles.js"></script>
+<script src="js/30-world.js"></script>
+<script src="js/31-school.js"></script>
+<script src="js/32-fx.js"></script>
+<script src="js/41-gamefeel.js"></script>
 <script src="js/40-gameplay.js"></script>
 <script src="js/99-hooks.js"></script>
 </body>

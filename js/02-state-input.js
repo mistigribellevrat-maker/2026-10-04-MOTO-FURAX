@@ -27,12 +27,12 @@ function setApp(next) {
   onAppChange(prev, next);
 }
 function openModal(id) {
-  modal = id; $(id).classList.remove("hidden"); $(id).classList.add("enter");
+  modal = id; $(id).classList.remove("hidden"); $(id).classList.add("enter"); document.body.classList.add("modal-open");
   audio.ui();
 }
 function closeModal() {
   if (!modal) return;
-  $(modal).classList.add("hidden"); modal = null; audio.ui();
+  $(modal).classList.add("hidden"); modal = null; audio.ui(); document.body.classList.remove("modal-open");
 }
 function refreshMenuInfo() {
   $("menu-best").textContent = save.best != null ? fmtTime(save.best) : "--";
@@ -44,7 +44,7 @@ function refreshMenuInfo() {
     det.textContent = "Aucune course enregistree pour le moment.";
   }
 }
-function refreshMuteBtn() { $("btn-mute").textContent = "SON : " + (save.muted ? "OFF" : "ON"); }
+function refreshMuteBtn() { const b = $("btn-mute"); b.classList.toggle("muted", !!save.muted); b.title = save.muted ? "Son coupé (M)" : "Son activé (M)"; }
 
 /* ------------------------------ 5. ENTREES ------------------------------- */
 const input = { up: false, down: false, left: false, right: false, nitro: false, jumpQueued: false, jumpHeld: false };

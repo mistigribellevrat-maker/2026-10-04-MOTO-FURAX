@@ -20,6 +20,7 @@ function setStyle(el, prop, v) {
   if (hudCache[k] !== v) { hudCache[k] = v; el.style[prop] = v; }
 }
 function flash(kind, dur) {
+  if (kind === "hit" || kind === "boost") return; // gere par le post-traitement (impactFeel)
   const f = $("flash");
   f.className = "";
   void f.offsetWidth;
@@ -58,6 +59,9 @@ function resetPlayer() {
   player.grounded = true; player.wheelSpin = 0; player.worldY = 0;
   player.vxDir = 0;
   player.boostFlame.material.opacity = 0;
+  feel.wheelie = feel.crouch = feel.nitroK = feel.punch = feel.tint = feel.aberr = feel.hitStop = 0;
+  if (skids) skids.clear();
+  if (nitroTrail) nitroTrail.reset(new THREE.Vector3(0, -99, 0));
   player.bike.rotation.set(0, 0, 0);
   player.root.rotation.set(0, 0, 0);
   dad.dist = CFG.DAD_START; dad.speed = def.maxSpeed * 0.5; dad.x = 0; dad.z = CFG.DAD_START;
@@ -81,6 +85,7 @@ function rebuildAllChunks(demo) {
 }
 function startRace() {
   audio.init(); audio.resume(); audio.uiBig();
+  if (player.builtBike !== save.bike) buildPlayer();
   audio.setSiren(0, 0.05);
   closeModal();
   gameState = newState();
@@ -116,12 +121,18 @@ function quitToHome() {
   audio.ui();
   audio.setSiren(0, 0.05);
   gameState = null;
+  enterHome();
+}
+// Ecran d'accueil : la scene 3D tourne en direct (moto au ralenti, camera qui orbite)
+function enterHome() {
   attract = false;
   dad.root.visible = false;
+  if (dad.bubble) dad.bubble.visible = false;
+  resetPlayer();
   rebuildAllChunks(true);
-  player.x = 0; player.z = 0; player.root.position.set(0, 0, 0);
-  player.root.visible = false;
-  camera.position.set(0, 16, 30);
+  player.x = 0; player.z = 0;
+  player.root.position.set(0, 0, 0);
+  player.root.visible = true;
   setApp(APP.HOME);
 }
 function pauseRace() {
@@ -146,22 +157,69 @@ function onAppChange(prev, next) {
     player.z = 0; player.speed = 13;
     camera.position.set(0, 15.5, 30);
   }
-  if (next === APP.HOME) {
-    attract = false;
+  if (next === APP.HOME) attract = false;
+}
+const inHero = () => app === APP.HOME || (app === APP.MENU && modal === "modal-shop");
+// decale l'image pour laisser la place au texte (fraction de la largeur)
+function setViewShift(f) {
+  if (Math.abs(f) < 0.001) { if (camera.view && camera.view.enabled) { camera.clearViewOffset(); } return; }
+  const W = RENDER.cssW || window.innerWidth, H = RENDER.cssH || window.innerHeight;
+  if (innerWidth / innerHeight < 1.1) f = 0;
+  if (f === 0) { if (camera.view && camera.view.enabled) camera.clearViewOffset(); return; }
+  camera.setViewOffset(W, H, -W * f, 0, W, H);
+}
+function updateIdle(dt) {
+  player.speed = 0;
+  player.root.position.set(player.x, 0, player.z);
+  player.shadow.position.set(player.x, 0.015, player.z);
+  player.shadow.visible = true;
+  player.bike.position.y = 0.01 + Math.sin(clockT * 38) * 0.003;
+  player.bike.rotation.set(0, 0, 0);
+  player.root.rotation.set(0, 0, 0);
+  player.steer.rotation.y = Math.sin(clockT * 0.5) * 0.18;
+  player.rider.rotation.x = -0.05 + Math.sin(clockT * 1.7) * 0.012;
+  player.head.rotation.y = Math.sin(clockT * 0.45) * 0.55;
+  player.head.rotation.x = 0.04;
+  player.scarf.rotation.x = -0.12 + Math.sin(clockT * 3) * 0.05;
+  if (player.headlight) { player.headlight.intensity = 6.5; player.nitroLight.intensity = 0; }
+  player.boostFlame.material.opacity = 0; player.boostFlame.userData.core.material.opacity = 0;
+  exhaustAcc += dt * 5;
+  while (exhaustAcc > 1) {
+    exhaustAcc -= 1;
+    player.bike.updateWorldMatrix(true, false);
+    _v.set(player.exhaustPos[0], player.exhaustPos[1], player.exhaustPos[2]); player.bike.localToWorld(_v);
+    smokePuff(_v.x, _v.y, _v.z, { s0: 0.13, a0: 0.22, ttl: 0.7 });
   }
+  ambientFx(dt, 0, player.x, player.z);
 }
 
 /* ------------------------------- ATTRACT MODE ------------------------------ */
 function updateAttract(dt) {
+  if (inHero()) { updateIdle(dt); return; }
   player.z -= 13 * dt;
   player.x = Math.sin(clockT * 0.5) * 2.2;
   player.root.position.set(player.x, 0, player.z);
   player.bike.rotation.z = damp(player.bike.rotation.z, Math.cos(clockT * 0.5) * 0.06, 4, dt);
-  player.wheelSpin -= (13 / 0.52) * dt;
+  player.bike.rotation.x = 0; player.bike.position.y = 0.01; player.bike.position.z = 0;
+  player.wheelSpin -= (13 / 0.33 / 1.65) * dt;
   player.wheels.forEach((w) => { w.rotation.x = player.wheelSpin; });
-  player.rider.rotation.x = -0.22;
+  player.rider.rotation.x = -0.14;
+  player.head.rotation.y = damp(player.head.rotation.y, 0, 5, dt);
+  player.scarf.rotation.x = -0.15 - 0.3 + Math.sin(clockT * 21) * 0.06;
   player.shadow.position.set(player.x, 0.015, player.z);
   recycleChunks(player.z, true);
+  const nitroLike = 0;
+  smokeAttract(dt);
+}
+function smokeAttract(dt) {
+  exhaustAcc += dt * 14;
+  while (exhaustAcc > 1) {
+    exhaustAcc -= 1;
+    player.bike.updateWorldMatrix(true, false);
+    _v.set(player.exhaustPos[0], player.exhaustPos[1], player.exhaustPos[2]); player.bike.localToWorld(_v);
+    smokePuff(_v.x, _v.y, _v.z, { s0: 0.16, a0: 0.25, ttl: 0.5 });
+  }
+  ambientFx(dt, 0.7, player.x, player.z);
 }
 function recycleChunks(focusZ, demo) {
   for (let i = 0; i < chunks.length; i++) {
@@ -214,6 +272,7 @@ function updateRace(dt) {
   exhaustFx(dt, st);
   updateHUD(dt, st);
 
+  if (DBG.god && st.timeLeft < 20) st.timeLeft = 20;
   if (st.timeLeft <= 0 && !st.endSeq) { st.timeLeft = 0; endRace(false, "time"); }
 }
 
@@ -323,44 +382,27 @@ function updatePlayer(dt, st) {
 function animateBike(dt, nitroActive, st) {
   const def = BIKES[save.bike];
   const sr = clamp(player.speed / def.maxSpeed, 0, 1.4);
-  player.wheelSpin -= (player.speed / 0.52) * dt;
+  player.wheelSpin -= (player.speed / 0.33 / 1.65) * dt;
   player.wheels.forEach((w) => { w.rotation.x = player.wheelSpin; });
   const steer = player.vxDir || 0;
   const leanZ = -steer * (0.25 + sr * 0.28) - (player.slip > 0 ? player.slipDir * 0.42 : 0);
   player.bike.rotation.z = damp(player.bike.rotation.z, clamp(leanZ, -0.75, 0.75), 7, dt);
   player.bike.rotation.y = damp(player.bike.rotation.y, steer * 0.09 + (player.slip > 0 ? player.slipDir * 0.55 : 0), 6, dt);
-  const pitch = -0.03 * sr + (nitroActive ? 0.05 : 0) - (player.grounded ? 0 : clamp(player.vy * 0.012, -0.12, 0.12));
+  const pitch = -0.03 * sr - (player.grounded ? 0 : clamp(player.vy * 0.012, -0.12, 0.12));
   player.root.rotation.x = damp(player.root.rotation.x, pitch, 5, dt);
-  player.rider.rotation.x = damp(player.rider.rotation.x, -0.02 - sr * 0.22 + (input.down ? 0.16 : 0), 6, dt);
-  player.rider.rotation.z = damp(player.rider.rotation.z, -steer * 0.12, 5, dt);
   player.steer.rotation.y = damp(player.steer.rotation.y, -steer * 0.3, 8, dt);
+  bikePostureFx(dt, nitroActive, st);
   if (player.stun > 0) {
     player.bike.rotation.z += Math.sin(clockT * 42) * 0.16 * player.stun;
     player.rider.rotation.z += Math.sin(clockT * 50) * 0.2 * player.stun;
   }
-  const fl = player.boostFlame.material;
-  const targetOp = nitroActive ? rnd(0.65, 1) : 0;
-  fl.opacity = damp(fl.opacity, targetOp, nitroActive ? 25 : 8, dt);
-  player.boostFlame.scale.set(rnd(0.85, 1.25), rnd(0.9, 1.5), rnd(0.85, 1.25));
   if (st && st.integrity < st.integrityMax * 0.3) {
-    if (Math.random() < 0.3) smokePuff(player.x, player.worldY + 0.9, player.z + 0.4, { s0: 0.22, r: 0.25, g: 0.25, b: 0.27, a0: 0.5, ttl: 0.8 });
+    if (Math.random() < 0.3) smokePuff(player.x, player.worldY + 0.9, player.z + 0.4, { s0: 0.24, r: 0.2, g: 0.2, b: 0.22, a0: 0.55, ttl: 0.9 });
   }
 }
 function exhaustFx(dt, st) {
-  const sr = clamp(player.speed / 30, 0, 2);
-  exhaustAcc += dt * (8 + sr * 26);
-  const bx = player.x + 0.24, by = player.worldY + 0.72, bz = player.z + 1.5;
-  while (exhaustAcc > 1) {
-    exhaustAcc -= 1;
-    smokePuff(bx + rnd(-0.06, 0.06), by, bz, { s0: rnd(0.1, 0.2), ttl: rnd(0.35, 0.7), a0: 0.3, drag: 0.9 });
-  }
-  if (input.nitro && st.nitro > 0.5) {
-    for (let i = 0; i < 2; i++) {
-      fxSpark.emit(bx + rnd(-0.2, 0.2), by + rnd(-0.15, 0.25), bz + rnd(0, 0.6), rnd(-1.4, 1.4), rnd(-0.4, 1.2), rnd(3, 9), {
-        ttl: rnd(0.16, 0.34), s0: rnd(0.14, 0.3), s1: 0.02, r: 0.5, g: 0.9, b: 1, r1: 0.2, g1: 0.5, b1: 1, a0: 0.9, drag: 0.9
-      });
-    }
-  }
+  const nitroActive = input.nitro && st.nitro > 0.5 && !player.stun;
+  bikeFx(dt, st, nitroActive);
 }
 
 /* -------------------------------- POURSUITE --------------------------------- */
@@ -384,9 +426,9 @@ function updateDadEntity(dt, st) {
   fatherHot = dad.dist < 22;
   setStyle($("hud-dad"), "width", ((1 - clamp(dad.dist / 50, 0, 1)) * 100) + "%");
   setText($("hud-dad-num"), dad.dist < 50 ? Math.round(dad.dist) + " m" : "LOIN");
-  $("hud-dad-bar").className = fatherHot ? "radar-bar hot" : "radar-bar";
+  $("hud-dad-bar").classList.toggle("hot", fatherHot);
   audio.setSiren(clamp(1 - (dad.dist - 3) / 36, 0, 1) * 0.85, dt);
-  if (dad.dist <= 2.4 && !st.endSeq) {
+  if (dad.dist <= 2.4 && !st.endSeq && !DBG.god) {
     endRace(false, "dad");
   }
 }
@@ -465,7 +507,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
   const type = e.type;
   let dmg = e.damage || 0;
   e.hitCd = 0.7;
-  if (type === "truck" || type === "bus") {
+  if (type === "truck" || type === "bus" || type === "parked") {
     const frontal = Math.abs(dx) < e.hw * 0.85;
     e.hitCd = 0.9;
     if (frontal) {
@@ -477,12 +519,14 @@ function hitEntity(e, st, dx, dz, hw, hl) {
       debrisBurst(player.x, player.worldY + 0.8, player.z, 16, [[0.9, 0.9, 0.95], [0.4, 0.45, 0.55], [1, 0.3, 0.2]]);
       sparksBurst(player.x, player.worldY + 0.7, player.z, 14, { power: 7 });
       audio.crash(true);
-      showAlert(type === "truck" ? "CRASH DANS LE CAMION SSB !" : "BUS SCOLAIRE PERCUTÉ !");
+      impactFeel("heavy", player.x, player.worldY + 0.9, player.z - 0.4);
+      showAlert(type === "truck" ? "CRASH DANS LE CAMION SSB !" : (type === "bus" ? "BUS SCOLAIRE PERCUTÉ !" : "VOITURE GARÉE !"));
     } else {
       player.speed *= 0.35;
       addShake(0.5);
       audio.crash(false);
       sparksBurst(player.x + Math.sign(dx) * 0.5, player.worldY + 0.5, player.z, 8, { power: 5 });
+      impactFeel("medium");
       showAlert("FROTTEMENT !", "gold");
     }
     applyDamage(dmg, st);
@@ -493,6 +537,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     audio.crash(false);
     audio.noiseBurst(0.2, "bandpass", 500, 0.2);
     debrisBurst(player.x, player.worldY + 1, player.z, 8, [[0.9, 0.8, 0.2], [0.95, 0.95, 0.95]]);
+    impactFeel("medium", player.x, player.worldY + 1, player.z - 0.5);
     showAlert("BLOQUÉ PAR LES MANIFESTANTS !");
     applyDamage(dmg, st);
   } else if (type === "cat") {
@@ -502,6 +547,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     addShake(0.3);
     audio.meow();
     heartsBurst(player.x, player.worldY + 0.4, player.z, 5);
+    impactFeel("light");
     showAlert("MIAOU ! CHAT SURPRIS !", "cyan");
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
@@ -510,6 +556,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     addShake(0.35);
     audio.crash(false);
     debrisBurst(player.x, player.worldY + 0.6, player.z, 6, [[0.2, 0.5, 0.9]]);
+    impactFeel("medium");
     showAlert("EH, MA TROTTINETTE !", "gold");
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
@@ -517,6 +564,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     player.speed *= 0.8;
     addShake(0.2);
     audio.beep(320, 0.18, "triangle", 0.12);
+    impactFeel("light");
     showAlert("LE BALLON !", "gold");
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
@@ -525,6 +573,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     addShake(0.22);
     audio.noiseBurst(0.1, "bandpass", 900, 0.16);
     sparksBurst(worldX(e), 0.4, worldZ(e), 6, { power: 4 });
+    impactFeel("light");
     showAlert("CÔNES DE CHANTIER !", "gold");
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
@@ -534,6 +583,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     addShake(0.3);
     audio.kiss();
     heartsBurst(worldX(e), 1.8, worldZ(e), 8);
+    impactFeel("light");
     showAlert("TA COPINE TE RETIENT !", "cyan");
     applyDamage(4, st);
     e.hitCd = 1.5;
@@ -545,6 +595,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     audio.crash(false);
     audio.beep(1400, 0.2, "square", 0.12, 300);
     sparksBurst(player.x, player.worldY + 1, player.z, 8, { power: 3 });
+    impactFeel("medium", player.x, player.worldY + 1.4, player.z);
     showAlert("TEXTO EN PLEINE TÊTE !");
     applyDamage(dmg, st);
     e.dead = true;
@@ -582,7 +633,7 @@ function collectItem(e, st) {
   }
 }
 function applyDamage(dmg, st) {
-  if (dmg <= 0) return;
+  if (dmg <= 0 || DBG.god) return;
   st.integrity = Math.max(0, st.integrity - dmg);
   st.hits++;
   if (st.integrity <= 0 && !st.endSeq) {
@@ -597,10 +648,20 @@ function updateHUD(dt, st) {
   setText($("hud-speed"), String(kmh));
   setText($("hud-clock"), fmtTime(st.timeLeft));
   const crit = st.timeLeft < 12;
-  $("hud-clock").className = crit ? "clock-time crit" : "clock-time";
+  const clk = $("hud-clock");
+  const ccls = crit ? "clock-time crit" : "clock-time";
+  if (clk.className !== ccls) clk.className = ccls;
   setText($("hud-dist"), Math.max(0, Math.round(CFG.TOTAL_DIST - st.distance)) + " m");
-  setText($("hud-health-num"), Math.round(st.integrity) + "%");
-  setStyle($("hud-nitro"), "width", clamp(st.nitro, 0, 100) + "%");
+  setText($("hud-health-num"), Math.round(clamp(st.integrity / st.integrityMax, 0, 1) * 100) + "%");
+  // arcs : vitesse (jusqu'a la vitesse nitro) et reserve de nitro
+  const sr = clamp(player.speed / def.nitroSpeed, 0, 1);
+  setStyle($("hud-speed-arc"), "strokeDashoffset", String(100 - sr * 100));
+  setStyle($("hud-nitro-arc"), "strokeDashoffset", String(100 - clamp(st.nitro, 0, 100)));
+  setText($("hud-nitro-pct"), String(Math.round(clamp(st.nitro, 0, 100))));
+  const hs = $("hud-nitro-arc").parentNode.parentNode;
+  const nitroOn = input.nitro && st.nitro > 0.5;
+  hs.classList.toggle("nitro-on", nitroOn);
+  hs.classList.toggle("nitro-low", st.nitro < 15);
   const hp = clamp(st.integrity / st.integrityMax, 0, 1);
   const hb = $("hud-health");
   setStyle(hb, "width", (hp * 100) + "%");
@@ -608,8 +669,10 @@ function updateHUD(dt, st) {
   if (hb.className !== cls) hb.className = cls;
   const pr = clamp(st.distance / CFG.TOTAL_DIST, 0, 1);
   setStyle($("hud-progress"), "width", (pr * 100) + "%");
+  setStyle($("mk-bike"), "left", (pr * 100) + "%");
+  setStyle($("mk-dad"), "left", Math.max(0, pr * 100 - (clamp(dad.dist, 0, 55) / 55) * 9) + "%");
   setText($("hud-mode"), fatherHot ? "PAPA EST LÀ !" : "CAP SUR LE COLLÈGE");
-  $("speedlines").className = (input.nitro && st.nitro > 0.5) ? "on" : "";
+  $("hud-mode").classList.toggle("hot", fatherHot);
   const dang = (!st.endSeq && (dad.dist < 13 || hp < 0.28));
   if ($("dmgborder").className !== (dang ? "on" : "")) $("dmgborder").className = dang ? "on" : "";
   if (crit && Math.floor(st.timeLeft) !== st.beeped) {
@@ -696,63 +759,88 @@ function showEndScreen(win, reason) {
 /* --------------------------------- CAMERA ----------------------------------- */
 function updateCamera(dt) {
   if (!renderer) return;
-  if (app === APP.HOME) {
-    camera.position.set(Math.sin(clockT * 0.06) * 7, 15.5, 34);
-    camera.lookAt(0, 1.2, -12);
+  if (DBG.cam) {
+    camera.position.set(DBG.cam.p[0], DBG.cam.p[1], DBG.cam.p[2]);
+    camera.lookAt(DBG.cam.l[0], DBG.cam.l[1], DBG.cam.l[2]);
+    if (camera.fov !== (DBG.cam.fov || 35)) { camera.fov = DBG.cam.fov || 35; camera.updateProjectionMatrix(); }
     return;
   }
-  const recul = clamp((app === APP.RACE && dad.dist < 28 ? (28 - dad.dist) * 0.95 : 0), 0, 17);
-  const baseY = (13.9 + recul * 0.45) * viewZoom;
-  const baseZ = (15.1 + recul + (app === APP.MENU ? 7 : 0)) * viewZoom;
+  if (inHero()) {
+    const t = clockT * 0.11, ang = -0.66 + Math.sin(t) * 0.55, r = 11.2 - Math.sin(t * 0.7) * 0.7, h = 2.1 + Math.sin(t * 0.8) * 0.3;
+    camera.position.set(player.x + Math.sin(ang) * r, h, player.z + Math.cos(ang) * r);
+    camera.rotation.z = 0;
+    camera.lookAt(player.x, 1.0, player.z);
+    if (Math.abs(camera.fov - 31) > 0.05) { camera.fov = damp(camera.fov, 31, 4, dt); camera.updateProjectionMatrix(); }
+    setViewShift(0.2);
+    return;
+  }
+  setViewShift(app === APP.MENU ? 0.17 : 0);
+  const recul = clamp((app === APP.RACE && dad.dist < 28 ? (28 - dad.dist) * 0.45 : 0), 0, 7);
+  const spd = clamp((player.speed || 0) / 42, 0, 1.6);
+  const baseY = (10.6 + spd * 1.6 + recul * 0.5) * viewZoom;
+  const baseZ = (12.2 + spd * 1.6 + recul + (app === APP.MENU ? 6 : 0)) * viewZoom;
   const followX = damp(camera.position.x, player.x * 0.5, 5.2, dt);
   const followY = damp(camera.position.y, baseY + (player.worldY || 0) * 0.32, 4.5, dt);
-  const followZ = damp(camera.position.z, player.z + baseZ + 2.2, 5.6, dt);
+  const followZ = damp(camera.position.z, player.z + baseZ + 2.0, 5.6, dt);
   camera.position.set(followX, followY, followZ);
   camera.rotation.z = 0;
-  camera.lookAt(player.x * 0.72, 1.6 + (player.worldY || 0) * 0.5, player.z - 6);
+  camera.lookAt(player.x * 0.72, 1.3 + (player.worldY || 0) * 0.5, player.z - 8.5 - spd * 2);
+  camera.rotation.z = -(player.vxDir || 0) * 0.012 * spd + feel.shakeRoll * 0.03;
   if (shake.amp > 0.002) {
     camera.position.x += rnd(-1, 1) * shake.amp * 0.55;
     camera.position.y += rnd(-1, 1) * shake.amp * 0.4;
     camera.rotation.z += rnd(-1, 1) * shake.amp * 0.03;
     shake.amp *= Math.exp(-5.2 * dt);
   } else { shake.amp = 0; }
-  const targetFov = 47 + clamp((player.speed || 0) / 42, 0, 1.6) * 6 + (input.nitro && app === APP.RACE ? 5 : 0);
+  const targetFov = 38 + spd * 5 + feel.nitroK * 6 - feel.punch * 3.2;
   if (Math.abs(camera.fov - targetFov) > 0.05) {
     camera.fov = damp(camera.fov, targetFov, 3.2, dt);
     camera.updateProjectionMatrix();
   }
-  if (player.shadow) player.shadow.visible = player.root.visible && app !== APP.HOME;
-  if (player.root) player.root.visible = app !== APP.HOME;
+  if (player.shadow) player.shadow.visible = player.root.visible;
 }
 
 /* -------------------------------- BOUCLE ------------------------------------ */
 function updateParticles(dt) {
   fxSmoke.update(dt); fxSpark.update(dt); fxDebris.update(dt);
 }
-function loop(now) {
-  requestAnimationFrame(loop);
-  const rawDt = Math.min((now - last) / 1000, 0.062);
-  last = now;
+/* Simulation pure (sans rendu) : permet les tests deterministes via MF.debug.advance() */
+function simStep(rawDt) {
   clockT += rawDt;
   let dt = rawDt;
   if (app === APP.PAUSE) dt = 0;
-
-  if (window.THREE && renderer) {
-    if (app === APP.MENU) updateAttract(dt);
-    else if (app === APP.RACE || app === APP.COUNTDOWN) updateRace(dt);
-    else if ((app === APP.WIN || app === APP.LOSE) && gameState && gameState.endSeq) updateEndSeq(dt);
-    if (app !== APP.PAUSE) {
-      updateParticles(Math.min(rawDt, 0.04));
-      for (let i = 0; i < ambient.length; i++) ambient[i](rawDt);
-      if (dirLight) {
-        sunTarget.position.set(player.x, 0, player.z - 10);
-        dirLight.position.set(player.x + 34, 52, player.z + 8);
-      }
-      updateCamera(rawDt);
-    }
-    renderer.render(scene, camera);
+  if (feel.hitStop > 0 && app === APP.RACE) { feel.hitStop -= rawDt; dt *= 0.05; }
+  if (!(window.THREE && renderer)) return;
+  if (app === APP.MENU || app === APP.HOME) updateAttract(dt);
+  else if (app === APP.RACE || app === APP.COUNTDOWN) updateRace(dt);
+  else if ((app === APP.WIN || app === APP.LOSE) && gameState && gameState.endSeq) updateEndSeq(dt);
+  if (app !== APP.PAUSE) {
+    updateParticles(Math.min(rawDt, 0.04));
+    updateFeel(dt, rawDt);
+    if (app === APP.RACE || app === APP.COUNTDOWN || app === APP.WIN || app === APP.LOSE) dadFx(rawDt);
+    for (let i = 0; i < ambient.length; i++) ambient[i](rawDt);
+    updateCamera(rawDt);
   }
 }
+function renderFrame(rawDt) {
+  applyPostFx(rawDt);
+  sunFocus.set(player.x, 0, player.z - 14);
+  updateSun(sunFocus);
+  if (skyMesh) { skyMesh.position.copy(camera.position); skyUniforms.uTime.value = clockT; }
+  RENDER.render(scene, camera, rawDt);
+}
+const MANUAL = /[?&]manual=1/.test(location.search); // tests : la page ne tourne que sur commande (MF.debug)
+function loop(now) {
+  requestAnimationFrame(loop);
+  if (MANUAL) { last = now; return; }
+  const rawDt = Math.min((now - last) / 1000, 0.062);
+  last = now;
+  if (!(window.THREE && renderer)) return;
+  simStep(rawDt);
+  RENDER.tick(rawDt * 1000);
+  renderFrame(rawDt);
+}
+const sunFocus = new THREE.Vector3();
 
 /* ---------------------------------- UI ------------------------------------- */
 function renderShop() {
@@ -773,6 +861,7 @@ function renderShop() {
       save.bike = i;
       persistSave();
       audio.uiBig();
+      buildPlayer(); player.root.position.set(player.x, 0, player.z); player.root.visible = true;
       renderShop();
       refreshMenuInfo();
     });
@@ -805,59 +894,23 @@ function setupUI() {
   $("btn-end-menu").addEventListener("click", goToMenu);
   $("btn-mute").addEventListener("click", () => { audio.setMuted(!save.muted); refreshMuteBtn(); });
   $("screen-home").addEventListener("click", (e) => { if (e.target.id === "screen-home" || e.target.id === "home-shade") beginJourney(); });
-  // Visuel d'accueil : image perso, sinon fond genere
+  // Visuel d'accueil : image perso si elle existe, sinon la scene 3D en direct
   const bg = $("home-bg");
   const probe = new Image();
-  probe.onload = () => { bg.style.backgroundImage = "url('" + CFG.HOME_IMAGE + "')"; };
-  probe.onerror = () => { bg.style.backgroundImage = "url('" + fallbackSplash() + "')"; };
+  probe.onload = () => { bg.style.backgroundImage = "url('" + CFG.HOME_IMAGE + "')"; bg.classList.add("has-image"); $("screen-home").classList.add("has-image"); };
+  probe.onerror = () => { bg.style.display = "none"; };
   probe.src = CFG.HOME_IMAGE;
-}
-function fallbackSplash() {
-  const c = document.createElement("canvas");
-  c.width = 1280; c.height = 720;
-  const x = c.getContext("2d");
-  const sky = x.createLinearGradient(0, 0, 0, 720);
-  sky.addColorStop(0, "#0b1230");
-  sky.addColorStop(0.45, "#5d2a63");
-  sky.addColorStop(0.72, "#d95a2b");
-  sky.addColorStop(1, "#ffb020");
-  x.fillStyle = sky; x.fillRect(0, 0, 1280, 720);
-  x.fillStyle = "#ffe9a8";
-  x.beginPath(); x.arc(880, 430, 78, 0, 6.3); x.fill();
-  x.fillStyle = "rgba(255,233,168,.25)";
-  x.beginPath(); x.arc(880, 430, 150, 0, 6.3); x.fill();
-  x.fillStyle = "#120a1e";
-  let bx = 0, seed = 7;
-  while (bx < 1280) {
-    const w = 60 + ((seed * 37) % 90), h = 120 + ((seed * 61) % 240);
-    x.fillRect(bx, 560 - h, w, h + 60);
-    seed = (seed * 31 + 17) % 997;
-    bx += w + 12;
-  }
-  x.fillStyle = "#1a1026";
-  x.beginPath();
-  x.moveTo(0, 720); x.lineTo(0, 620); x.lineTo(1280, 470); x.lineTo(1280, 720);
-  x.closePath(); x.fill();
-  x.strokeStyle = "rgba(255,220,140,.85)"; x.lineWidth = 8;
-  x.beginPath(); x.moveTo(520, 700); x.lineTo(690, 545); x.stroke();
-  x.beginPath(); x.moveTo(770, 690); x.lineTo(700, 548); x.stroke();
-  return c.toDataURL("image/jpeg", 0.9);
 }
 
 /* --------------------------------- INIT ------------------------------------ */
-function onResize() {
-  const w = window.innerWidth, h = window.innerHeight;
-  viewZoom = clamp(1.5 / (w / h), 1, 1.55);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-}
+function onResize() { RENDER.resize(true); }
 function bootError() {
   const d = document.createElement("div");
   d.id = "boot-error";
   d.innerHTML = "<div><h1>MOTEUR 3D INDISPONIBLE</h1><p>Three.js n'a pas pu etre charge (fichier <b>lib/three.min.js</b> manquant et acces Internet impossible).</p><p>Verifie que le dossier <b>lib</b> est bien a cote de index.html, puis recharge la page.</p></div>";
   document.body.appendChild(d);
 }
+let bootDone = false;
 function init() {
   if (!window.THREE) {
     const s = document.createElement("script");
@@ -867,16 +920,13 @@ function init() {
     document.head.appendChild(s);
     return;
   }
-  const wrap = $("webgl");
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.outputEncoding = THREE.sRGBEncoding;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.98;
-  wrap.appendChild(renderer.domElement);
+  RENDER.init($("webgl"), { preserve: /[?&]manual=1/.test(location.search) });
+  renderer = RENDER.renderer;
+  RENDER.onResize = (w, h) => {
+    viewZoom = clamp(1.5 / (w / h), 1, 1.55);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  };
 
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(47, window.innerWidth / window.innerHeight, 0.5, 900);
@@ -885,18 +935,37 @@ function init() {
   scene.add(worldGroup);
   scene.add(entGroup);
 
-  buildTextures();
-  buildSky();
-  buildParticles();
-  buildWorld();
-  buildDad();
-  setupUI();
-  onResize();
-  window.addEventListener("resize", onResize);
-  last = performance.now();
-  requestAnimationFrame(loop);
-  // petit prechauffage de la demo
-  setApp(APP.HOME);
+  const steps = [["Matériaux", buildMaterials]]
+    .concat(cityTextureSteps())
+    .concat([
+      ["Bâtiments", buildBuildingPrefabs], ["Mobilier urbain", buildProps], ["Textures", buildSignTextures],
+      ["Ciel et lumière", buildSky], ["Effets", buildParticles], ["Ville", buildWorld], ["Poursuivant", buildDad],
+      ["Interface", () => { setupUI(); onResize(); }]
+    ]);
+  const ldFill = $("ld-fill"), ldText = $("ld-text"), ld = $("loading");
+  let si = 0;
+  const runStep = () => {
+    if (si >= steps.length) {
+      window.addEventListener("resize", onResize);
+      last = performance.now();
+      requestAnimationFrame(loop);
+      enterHome();
+      bootDone = true;
+      ld.classList.add("done");
+      setTimeout(() => ld.remove(), 700);
+      return;
+    }
+    const st = steps[si];
+    ldFill.style.width = Math.round(si / steps.length * 100) + "%";
+    ldText.textContent = st[0] + "…";
+    setTimeout(() => {
+      const t0 = performance.now();
+      st[1]();
+      if (window.__bootLog) console.log("boot " + st[0] + " " + Math.round(performance.now() - t0) + "ms");
+      si++; runStep();
+    }, 12);
+  };
+  runStep();
 }
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 else init();

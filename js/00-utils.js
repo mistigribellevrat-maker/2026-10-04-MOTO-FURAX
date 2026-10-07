@@ -1,5 +1,6 @@
 "use strict";
 /* ----------------------------- 0. UTILITAIRES ---------------------------- */
+const DBG = { god: false, cam: null, studioObj: null }; // outils de test uniquement (voir MF.debug)
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -34,16 +35,18 @@ function textSprite(text, opts) {
   x.textAlign = "center"; x.textBaseline = "middle";
   x.fillText(text, c.width / 2, c.height / 2 + (opts.dy || 0));
   const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
   tex.anisotropy = 4;
   return tex;
 }
-function canvasTex(w, h, draw, repX, repY) {
+function canvasTex(w, h, draw, repX, repY, linear) {
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
   draw(c.getContext("2d"), w, h);
   const t = new THREE.CanvasTexture(c);
   t.wrapS = t.wrapT = THREE.RepeatWrapping;
   if (repX) t.repeat.set(repX, repY || repX);
+  t.encoding = linear ? THREE.LinearEncoding : THREE.sRGBEncoding;
   t.anisotropy = 8;
   return t;
 }
