@@ -15,6 +15,21 @@ window.MF = {
     key(k, v) { input[k] = !!v; },
     jump() { input.jumpQueued = true; },
     cam(c) { DBG.cam = c; },
+    // fait apparaitre une entite de jeu a une position relative au joueur (tests)
+    spawn(name, dx, dz, o) {
+      o = o || {};
+      const f = { truck: makeTruck, cat: makeCat, protest: makeProtest, bus: makeBus, kid: makeScooterKid, ballkid: makeBallKid, cones: makeConeCluster, puddle: makePuddle, girlfriend: makeGirlfriend };
+      const e = f[name]();
+      e.x = player.x + dx; e.z = player.z + dz; e.chunk = null;
+      e.obj.position.set(e.x, e.baseY || 0, e.z);
+      if (o.freeze) { e.update = null; e.dyn = false; }
+      scene.add(e.obj); ents.push(e);
+      return ents.length - 1;
+    },
+    ent(i) { const e = ents[i]; return e ? { type: e.type, dead: !!e.dead, hitCd: e.hitCd, level: e.level, x: e.x, z: e.z } : null; },
+    setNitro(v) { if (gameState) gameState.nitro = v; },
+    setPlayer(o) { Object.assign(player, o); },
+    info() { const i = RENDER.renderer.info; return { calls: i.render.calls, tris: i.render.triangles, geo: i.memory.geometries, tex: i.memory.textures, level: RENDER.level, scale: RENDER.scale }; },
     impact(level) { impactFeel(level || "heavy"); sparksBurst(player.x, player.worldY + 0.7, player.z, 14, { power: 7 }); debrisBurst(player.x, player.worldY + 0.8, player.z, 16, [[0.9, 0.9, 0.95], [0.4, 0.45, 0.55], [1, 0.3, 0.2]]); },
     studio(name) {
       if (DBG.studioObj) { scene.remove(DBG.studioObj); DBG.studioObj = null; }
@@ -38,6 +53,7 @@ window.MF = {
       this.frame();
     },
     god(v) { DBG.god = v !== false; },
+    noObstacles(v) { DBG.noObstacles = v !== false; },
     clear() { ents.forEach((e) => { if (e.type !== "item" || true) { e.dead = true; if (e.obj) e.obj.visible = false; } }); },
     teleport(z) { player.z = z; },
     setTimeLeft(v) { if (gameState) gameState.timeLeft = v; },

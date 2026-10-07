@@ -140,7 +140,7 @@ function layoutChunk(chunk, index, demo) {
   roadDecals(c, zone, rng, decals, index);
   const dm = decals.build();
   if (dm) c.add(dm);
-  if (!demo && dist < CFG.TOTAL_DIST - 60) spawnPattern(chunk, c, 0, dist, zone, rng, diff);
+  if (!demo && !DBG.noObstacles && dist < CFG.TOTAL_DIST - 60) spawnPattern(chunk, c, 0, dist, zone, rng, diff);
 }
 
 function roadDecals(c, zone, rng, decals, index) {

@@ -328,3 +328,5 @@ body.modal-open #screen-menu .menu-wrap{opacity:0;pointer-events:none}
 #modal-shop .shop-card h3{padding-right:5.4em;font-size:.92rem}
 .shop-tag{white-space:nowrap}
 #screen-end{background:radial-gradient(ellipse at 50% 45%,rgba(8,12,22,.55),rgba(3,4,8,.82));backdrop-filter:blur(3px)}
+
+body.paused #hud *,body.paused #dmgborder,body.paused #flash,body.paused #countdown b{animation-play-state:paused!important}

@@ -319,7 +319,7 @@ function makeGirlfriend() {
     h.head.rotation.z = Math.sin(t * 2.5) * 0.12;
     h.armL.rotation.z = Math.sin(t * 7) * 0.3;
     h.hips.position.y = 0.9 + Math.abs(Math.sin(t * 3)) * 0.03;
-    const distZ = ent.z - P.z;
+    const distZ = P.z - ent.z;            // > 0 : elle est devant la moto
     ent.throwT -= dt;
     if (!ent.hasThrown && distZ > 6 && distZ < 44) {
       ent.throwT -= dt * 3;

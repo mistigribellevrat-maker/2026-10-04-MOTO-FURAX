@@ -15,6 +15,7 @@ function setApp(next) {
   screens.pause.classList.toggle("hidden", next !== APP.PAUSE);
   screens.end.classList.toggle("hidden", !(next === APP.WIN || next === APP.LOSE));
   hudEl.classList.toggle("hidden", !(next === APP.RACE || next === APP.PAUSE || next === APP.COUNTDOWN));
+  document.body.classList.toggle("paused", next === APP.PAUSE);
   if (next === APP.HOME) { screens.home.classList.add("enter"); }
   if (next === APP.MENU) {
     refreshMenuInfo();

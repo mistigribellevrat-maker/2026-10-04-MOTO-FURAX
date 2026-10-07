@@ -1,6 +1,6 @@
 "use strict";
 /* ----------------------------- 0. UTILITAIRES ---------------------------- */
-const DBG = { god: false, cam: null, studioObj: null }; // outils de test uniquement (voir MF.debug)
+const DBG = { god: false, cam: null, studioObj: null, noObstacles: false }; // outils de test uniquement (voir MF.debug)
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => v < a ? a : (v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -72,7 +72,7 @@ const CFG = {
   NITRO_REGEN: 7.5,
   JUMP_V: 12.2,
   GRAVITY: 31,
-  DAD_START: 32,
+  DAD_START: 34,
   DAD_MIN: 12,
   DAD_MAX: 30,
   STEP: 1 / 60

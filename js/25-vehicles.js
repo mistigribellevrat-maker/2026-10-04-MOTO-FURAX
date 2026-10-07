@@ -574,13 +574,16 @@ function spawnPhone(ent, P) {
   g.position.copy(ent.obj.position);
   g.position.y = 1.9;
   scene.add(g);
-  const dz = (P.z - 12) - ent.z;
-  const dx = P.x - ent.obj.position.x;
-  const T = 1.0;
+  // tir predictif : le telephone retombe ~0,6 s plus tard a l'endroit ou sera la moto (si elle ne devie pas)
+  const Tf = 0.6;
+  const tz = P.z - (P.speed || 0) * Tf - 1.0, tx = P.x + (P.vx || 0) * 0.25;
+  const dz = tz - ent.z;
+  const dx = tx - ent.obj.position.x;
+  const T = Tf;
   const pe = {
     obj: g, type: "phone", level: "LOW", hw: 0.22, hl: 0.22, hh: 0.35,
     damage: 9, dead: false, z: ent.z, x: ent.obj.position.x, y: 1.9,
-    vx: dx / T, vz: dz / T, vy: 6.4, landed: false, t: 0, hitCd: 0, baseY: 0
+    vx: dx / T, vz: dz / T, vy: 6.47, landed: false, t: 0, hitCd: 0, baseY: 0
   };
   g.userData.ent = pe;
   ents.push(pe);

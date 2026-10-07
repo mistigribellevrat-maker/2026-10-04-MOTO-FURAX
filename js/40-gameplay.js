@@ -64,7 +64,7 @@ function resetPlayer() {
   if (nitroTrail) nitroTrail.reset(new THREE.Vector3(0, -99, 0));
   player.bike.rotation.set(0, 0, 0);
   player.root.rotation.set(0, 0, 0);
-  dad.dist = CFG.DAD_START; dad.speed = def.maxSpeed * 0.5; dad.x = 0; dad.z = CFG.DAD_START;
+  dad.dist = CFG.DAD_START; dad.speed = def.maxSpeed * 0.34; dad.x = 0; dad.z = CFG.DAD_START;
   dad.root.visible = false;
   player.root.visible = true;
   player.root.position.set(0, 0, 0);
@@ -139,6 +139,8 @@ function pauseRace() {
   if (app !== APP.RACE) return;
   audio.ui();
   audio.setSiren(0, 0.05);
+  audio.setNitro(false);
+  audio.setEngine(0, 0, 0);
   input.up = input.down = input.left = input.right = input.nitro = false;
   setApp(APP.PAUSE);
 }
@@ -408,9 +410,11 @@ function exhaustFx(dt, st) {
 /* -------------------------------- POURSUITE --------------------------------- */
 function updateDadEntity(dt, st) {
   const def = BIKES[save.bike];
-  const target = Math.max(CFG.DAD_MIN, player.speed * 0.9 + 2.5);
+  // Vitesse du poursuivant relative a la vitesse du joueur, plafonnee sous la vitesse de pointe :
+  // a fond, la moto prend lentement de l'avance ; tout ralentissement ou choc laisse papa recoller.
+  const target = clamp(player.speed * 0.88 + 3.5, CFG.DAD_MIN, def.maxSpeed * 0.965);
   dad.speed = damp(dad.speed, target, 1.8, dt);
-  dad.dist += (dad.speed - player.speed) * dt;
+  dad.dist += (player.speed - dad.speed) * dt;     // distance derriere la moto (m)
   dad.dist = clamp(dad.dist, 0, 55);
   dad.x = damp(dad.x, player.x + Math.sin(clockT * 1.3) * 0.8, 2.5, dt);
   dad.z = player.z + dad.dist;
@@ -806,6 +810,7 @@ function updateParticles(dt) {
 }
 /* Simulation pure (sans rendu) : permet les tests deterministes via MF.debug.advance() */
 function simStep(rawDt) {
+  if (app !== APP.PAUSE) animClock += rawDt;
   clockT += rawDt;
   let dt = rawDt;
   if (app === APP.PAUSE) dt = 0;
@@ -826,8 +831,8 @@ function renderFrame(rawDt) {
   applyPostFx(rawDt);
   sunFocus.set(player.x, 0, player.z - 14);
   updateSun(sunFocus);
-  if (skyMesh) { skyMesh.position.copy(camera.position); skyUniforms.uTime.value = clockT; }
-  RENDER.render(scene, camera, rawDt);
+  if (skyMesh) { skyMesh.position.copy(camera.position); skyUniforms.uTime.value = animClock; }
+  RENDER.render(scene, camera, app === APP.PAUSE ? 0 : rawDt);
 }
 const MANUAL = /[?&]manual=1/.test(location.search); // tests : la page ne tourne que sur commande (MF.debug)
 function loop(now) {
@@ -841,6 +846,7 @@ function loop(now) {
   renderFrame(rawDt);
 }
 const sunFocus = new THREE.Vector3();
+let animClock = 0; // horloge d'animation : s'arrete en pause
 
 /* ---------------------------------- UI ------------------------------------- */
 function renderShop() {
@@ -947,6 +953,7 @@ function init() {
   const runStep = () => {
     if (si >= steps.length) {
       window.addEventListener("resize", onResize);
+      if (window.ResizeObserver) new ResizeObserver(() => onResize()).observe($("webgl"));
       last = performance.now();
       requestAnimationFrame(loop);
       enterHome();
