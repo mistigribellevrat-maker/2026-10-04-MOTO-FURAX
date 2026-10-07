@@ -281,8 +281,9 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(8); });
     const d1 = await ev(() => MF.dad.dist);
     await ev(() => MF.debug.spawn("protest", 0, -1, { freeze: true }));
-    await ev(() => MF.debug.advance(2.5));
-    ok(await ev(() => MF.dad.dist) < d1 - 3, "apres le choc, papa a rattrape du terrain", { avant: +d1.toFixed(1), apres: +(await ev(() => MF.dad.dist)).toFixed(1) });
+    let dmin = d1;
+    for (let i = 0; i < 25; i++) { await ev(() => MF.debug.advance(0.1)); dmin = Math.min(dmin, await ev(() => MF.dad.dist)); }
+    ok(dmin < d1 - 4, "apres le choc, papa a rattrape du terrain (distance minimale atteinte)", { avant: +d1.toFixed(1), minimum: +dmin.toFixed(1) });
   });
 
   /* ---------------------------- FIN DE PARTIE ---------------------------- */
@@ -311,13 +312,13 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   });
   await test("Victoire : franchissement du portail", async () => {
     await fresh();
-    await ev(() => { MF.debug.teleport(-1499.4); MF.player.speed = 30; MF.debug.key("up", true); MF.debug.advance(0.1); MF.debug.advance(3); });
+    await ev(() => { MF.debug.teleport(-(MF.CFG.TOTAL_DIST - 0.6)); MF.player.speed = 30; MF.debug.key("up", true); MF.debug.advance(0.1); MF.debug.advance(3); });
     ok(await ev(() => MF.state) === "WIN", "etat VICTOIRE");
     ok(await ev(() => MF.game.timeLeft > 0 && MF.game.integrity > 0), "chrono > 0 et integrite > 0");
   });
   await test("Arbitrage : victoire prioritaire si papa interceptait au meme instant", async () => {
     await fresh();
-    await ev(() => { MF.debug.teleport(-1499.6); MF.player.speed = 40; MF.dad.dist = 2.3; MF.debug.key("up", true); MF.debug.advance(0.05); });
+    await ev(() => { MF.debug.teleport(-(MF.CFG.TOTAL_DIST - 0.4)); MF.player.speed = 40; MF.dad.dist = 2.3; MF.debug.key("up", true); MF.debug.advance(0.05); });
     ok(await ev(() => MF.game.endSeq && MF.game.endSeq.win), "VICTOIRE prime sur la capture", await ev(() => MF.game.endSeq));
     await ev(() => MF.debug.advance(3));
     ok(await ev(() => MF.state) === "WIN", "ecran de victoire");

@@ -423,7 +423,7 @@ function buildTruckProto() {
   [[-1.5, 1.05, 4.9], [1.5, 1.05, 4.9], [-1.62, 1.35, -3.9], [1.62, 1.35, -3.9]].forEach((p) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), hzM); m.position.set(p[0], p[1], p[2]); hz.add(m); });
   g.add(hz);
   g.userData.hazard = hzM;
-  return g;
+  return markShared(g);
 }
 
 function makeTruck() {
@@ -480,7 +480,7 @@ function buildBusProto() {
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 0.36), new THREE.MeshStandardMaterial({ map: textSprite("ÉCOLE · SCOLARITE", { w: 512, h: 96, fg: "#17140a", bg: "#ffe08a", font: "700 56px Rajdhani, Arial" }), emissiveMap: null, roughness: 0.6 }));
   sign.position.set(0, 3.4, -3.37); sign.rotation.y = Math.PI; g.add(sign);
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-  return g;
+  return markShared(g);
 }
 function makeBus() {
   if (!PROP.bus) PROP.bus = buildBusProto();
@@ -511,7 +511,7 @@ function makePuddle() {
     }, 1, 1, true);
     GFX.tex.ripple.wrapS = GFX.tex.ripple.wrapT = THREE.RepeatWrapping;
   }
-  const mat = new THREE.MeshStandardMaterial({ color: 0x1c2e40, roughness: 0.02, metalness: 0.25, transparent: true, opacity: 0.88, envMapIntensity: 2.6, normalMap: GFX.tex.ripple, normalScale: new THREE.Vector2(0.18, 0.18), polygonOffset: true, polygonOffsetFactor: -3 });
+  const mat = ownMat(new THREE.MeshStandardMaterial({ color: 0x1c2e40, roughness: 0.02, metalness: 0.25, transparent: true, opacity: 0.88, envMapIntensity: 2.6, normalMap: GFX.tex.ripple, normalScale: new THREE.Vector2(0.18, 0.18), polygonOffset: true, polygonOffsetFactor: -3 }));
   const water = new THREE.Mesh(new THREE.CircleGeometry(rnd(1.7, 2.3), 28), mat);
   water.rotation.x = -Math.PI / 2; water.position.y = 0.022;
   water.scale.set(1, rnd(0.6, 0.85), 1);

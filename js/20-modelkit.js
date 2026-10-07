@@ -77,24 +77,48 @@ class GeoBuilder {
 }
 
 /* ------------------------------- MATERIAUX ------------------------------- */
+// Un seul materiau PBR "universel" pour toutes les pieces en couleurs de sommets :
+// rugosite / metal / emissif sont portes par un attribut de sommet (aPBR). Resultat : un batiment,
+// un vehicule ou un personnage = 1 seul draw call pour toutes ses matieres.
+const PBR_PRESETS = {
+  matte: [0.88, 0.0, 0.0], paint: [0.26, 0.28, 0.0], metal: [0.34, 0.92, 0.0], chrome: [0.12, 1.0, 0.0],
+  rubber: [0.92, 0.0, 0.0], plastic: [0.5, 0.0, 0.0], cloth: [0.96, 0.0, 0.0], skin: [0.62, 0.0, 0.0],
+  foliage: [0.85, 0.0, 0.0], glass: [0.04, 0.55, 0.0], glow: [1.0, 0.0, 2.8]
+};
+function addPBR(geo, preset) {
+  const n = geo.attributes.position.count, a = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { a[i * 3] = preset[0]; a[i * 3 + 1] = preset[1]; a[i * 3 + 2] = preset[2]; }
+  geo.setAttribute("aPBR", new THREE.BufferAttribute(a, 3));
+  return geo;
+}
 function buildMaterials() {
-  const mk = (o) => new THREE.MeshStandardMaterial(Object.assign({ vertexColors: true }, o));
-  GFX.mat.matte = mk({ roughness: 0.88, metalness: 0.0 });
-  GFX.mat.paint = mk({ roughness: 0.26, metalness: 0.28, envMapIntensity: 1.25 });
-  GFX.mat.metal = mk({ roughness: 0.34, metalness: 0.92, envMapIntensity: 1.2 });
-  GFX.mat.chrome = mk({ roughness: 0.12, metalness: 1.0, envMapIntensity: 1.5 });
-  GFX.mat.rubber = mk({ roughness: 0.92, metalness: 0.0 });
-  GFX.mat.plastic = mk({ roughness: 0.5, metalness: 0.0 });
-  GFX.mat.cloth = mk({ roughness: 0.96, metalness: 0.0 });
-  GFX.mat.skin = mk({ roughness: 0.62, metalness: 0.0 });
-  GFX.mat.glass = new THREE.MeshStandardMaterial({ color: 0x0c1a28, roughness: 0.04, metalness: 0.55, envMapIntensity: 1.7, vertexColors: true });
-  GFX.mat.foliage = mk({ roughness: 0.85, metalness: 0.0, side: THREE.FrontSide });
-  GFX.mat.glow = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
-  GFX.mat.glow.color.setScalar(2.6);
+  const uni = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, envMapIntensity: 1.15 });
+  uni.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nattribute vec3 aPBR;\nvarying vec3 vPBR;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvPBR = aPBR;");
+    sh.fragmentShader = sh.fragmentShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vPBR;")
+      .replace("#include <roughnessmap_fragment>", "float roughnessFactor = vPBR.x;")
+      .replace("#include <metalnessmap_fragment>", "float metalnessFactor = vPBR.y;")
+      .replace("#include <emissivemap_fragment>", "totalEmissiveRadiance += diffuseColor.rgb * vPBR.z;");
+  };
+  uni.customProgramCacheKey = () => "uni-pbr";
+  GFX.mat.uni = uni;
+  // materiaux "nommes" : simples marqueurs de preset (meshOf les redirige vers le materiau universel)
+  Object.keys(PBR_PRESETS).forEach((k) => {
+    const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: PBR_PRESETS[k][0], metalness: PBR_PRESETS[k][1] });
+    m.userData.preset = k;
+    GFX.mat[k] = m;
+  });
 }
 
-// Cree un mesh partage (castShadow par defaut)
+// Cree un mesh partage (castShadow par defaut). Redirige les materiaux nommes vers le materiau universel.
 function meshOf(geo, mat, shadow) {
+  if (mat && mat.userData && mat.userData.preset && geo.attributes.color) {
+    if (!geo.attributes.aPBR) addPBR(geo, PBR_PRESETS[mat.userData.preset]);
+    mat = GFX.mat.uni;
+  }
   const m = new THREE.Mesh(geo, mat);
   m.castShadow = shadow !== false;
   m.receiveShadow = true;

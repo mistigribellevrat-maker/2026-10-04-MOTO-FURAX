@@ -13,16 +13,23 @@ class BB {
   g(k) { return this.b[k] || (this.b[k] = new GeoBuilder()); }
   finish() {
     const grp = new THREE.Group();
+    const uni = [];
     Object.keys(this.b).forEach((k) => {
       const geo = this.b[k].build();
       if (!geo.attributes.position || !geo.attributes.position.count) return;
-      let mat;
-      if (k[0] === "f" && k.length === 2) mat = GFX.mat.facade[+k[1]];
-      else mat = GFX.mat[k];
-      const m = meshOf(geo, mat, k !== "glass" && k !== "glow");
+      if (PBR_PRESETS[k]) { addPBR(geo, PBR_PRESETS[k]); uni.push(geo); return; }
+      const mat = (k[0] === "f" && k.length === 2) ? GFX.mat.facade[+k[1]] : GFX.mat[k];
+      const m = meshOf(geo, mat, true);
       m.name = k;
       grp.add(m);
     });
+    if (uni.length) {
+      const merged = uni.length === 1 ? uni[0] : THREE.BufferGeometryUtils.mergeBufferGeometries(uni, false);
+      if (uni.length > 1) uni.forEach((g) => g.dispose());
+      const m = new THREE.Mesh(merged, GFX.mat.uni);
+      m.castShadow = true; m.receiveShadow = true; m.name = "uni";
+      grp.add(m);
+    }
     return grp;
   }
 }
@@ -150,7 +157,7 @@ function makeBuilding(spec, rng) {
   }
   const grp = bb.finish();
   grp.userData = { W: W, D: D, H: H };
-  return grp;
+  return markShared(grp);
 }
 
 function buildBuildingPrefabs() {

@@ -21,12 +21,20 @@ function regEnt(obj, opt) {
   e.obj.userData.ent = e;
   return e;
 }
-// Libere les geometries marquees _temp (creees par instance, jamais partagees)
+// Marque tout un prototype comme partage : ses geometries ne sont jamais liberees (les clones les reutilisent)
+function markShared(root) {
+  root.traverse((o) => { if (o.geometry) o.geometry._shared = true; });
+  return root;
+}
+// Libere la memoire GPU d'un sous-arbre : geometries NON partagees et materiaux marques "own" (crees par instance)
 function disposeTempRecursive(root) {
   root.traverse((o) => {
-    if (o.geometry && o.geometry._temp && !o.geometry._shared) o.geometry.dispose();
+    if (o.geometry && !o.geometry._shared) o.geometry.dispose();
+    const m = o.material;
+    if (m && !Array.isArray(m) && m.userData && m.userData.own) m.dispose();
   });
 }
+const ownMat = (m) => { m.userData.own = true; return m; };
 
 // Panneaux de manifestation (canvas)
 function buildSignTextures() {

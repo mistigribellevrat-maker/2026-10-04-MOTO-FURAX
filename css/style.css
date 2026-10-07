@@ -330,3 +330,9 @@ body.modal-open #screen-menu .menu-wrap{opacity:0;pointer-events:none}
 #screen-end{background:radial-gradient(ellipse at 50% 45%,rgba(8,12,22,.55),rgba(3,4,8,.82));backdrop-filter:blur(3px)}
 
 body.paused #hud *,body.paused #dmgborder,body.paused #flash,body.paused #countdown b{animation-play-state:paused!important}
+
+.link-btn{background:none;border:0;color:#98a4b8;font-family:var(--font-b);font-weight:700;font-size:.86rem;letter-spacing:.08em;cursor:pointer;padding:4px 0;text-transform:uppercase}
+.link-btn b{color:var(--cyan);font-family:var(--font-d);font-size:.8rem}
+.link-btn:hover{color:#fff}
+.menu-foot-2{align-items:center;margin-top:-6px}
+.hint-keys{font-size:.74rem;color:#6f7b90;letter-spacing:.06em}

@@ -60,8 +60,8 @@ const CFG = {
   WALL_X: 11.9,
   CHUNK_LEN: 80,
   ACTIVE_CHUNKS: 6,
-  TOTAL_DIST: 1500,
-  TIME_LIMIT: 80,
+  TOTAL_DIST: 2000,
+  TIME_LIMIT: 66,
   MAX_SPEED: 42,
   NITRO_SPEED: 62,
   ACCEL: 16.5,
@@ -86,7 +86,7 @@ const BIKES = [
 
 /* ----------------------------- 2. SAUVEGARDE ----------------------------- */
 const SAVE_KEY = "motorFuraxSaveV1";
-let save = { best: null, bestHealth: 0, bike: 0, muted: false, runs: 0 };
+let save = { best: null, bestHealth: 0, bike: 0, muted: false, runs: 0, quality: "auto" };
 try {
   const raw = localStorage.getItem(SAVE_KEY);
   if (raw) save = Object.assign(save, JSON.parse(raw));

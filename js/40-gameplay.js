@@ -413,7 +413,7 @@ function updateDadEntity(dt, st) {
   // Vitesse du poursuivant relative a la vitesse du joueur, plafonnee sous la vitesse de pointe :
   // a fond, la moto prend lentement de l'avance ; tout ralentissement ou choc laisse papa recoller.
   const target = clamp(player.speed * 0.88 + 3.5, CFG.DAD_MIN, def.maxSpeed * 0.965);
-  dad.speed = damp(dad.speed, target, 1.8, dt);
+  dad.speed = damp(dad.speed, target, 2.4, dt);
   dad.dist += (player.speed - dad.speed) * dt;     // distance derriere la moto (m)
   dad.dist = clamp(dad.dist, 0, 55);
   dad.x = damp(dad.x, player.x + Math.sin(clockT * 1.3) * 0.8, 2.5, dt);
@@ -491,7 +491,12 @@ function collide(dt, st) {
     if (Math.abs(dx) > hw || Math.abs(dz) > hl) continue;
     if (py + wy > (e.hh + (wy > 0 ? 0.2 : 0)) && e.level === "LOW") continue;
     if (e.level === "GROUND" && py > 0.28) continue;
-    if (e.hitCd > 0) { e.hitCd -= dt; resolveSolid(e, dx, dz, hw, hl, st, true); continue; }
+    if (e.hitCd > 0) {
+      e.hitCd -= dt;
+      // seuls les vehicules restent des corps solides apres l'impact (jamais une flaque, un chat, une foule...)
+      if (e.level === "FULL") resolveSolid(e, dx, dz, hw, hl, st, true);
+      continue;
+    }
     hitEntity(e, st, dx, dz, hw, hl);
   }
   fatherHot = dad.dist < 22;
@@ -884,11 +889,19 @@ function statRow(label, v) {
   return '<div class="shop-stat"><span>' + label + "</span><div class='bar'><i style='width:" + (clamp(v, 0, 5) / 5 * 100) + "%'></i></div></div>";
 }
 function setupUI() {
+  $("tag-time").textContent = CFG.TIME_LIMIT + " secondes";
   $("btn-play").addEventListener("click", beginJourney);
   $("btn-new").addEventListener("click", startRace);
   $("btn-load").addEventListener("click", () => { refreshMenuInfo(); openModal("modal-load"); });
   $("btn-shop").addEventListener("click", () => { renderShop(); openModal("modal-shop"); });
   $("btn-quit").addEventListener("click", quitToHome);
+  const QL = ["auto", "high", "medium", "low"], QN = { auto: "AUTO", high: "ÉLEVÉS", medium: "MOYENS", low: "BAS" };
+  const refreshQ = () => { $("btn-quality").innerHTML = "GRAPHISMES : <b>" + QN[RENDER.userLevel] + "</b>"; };
+  $("btn-quality").addEventListener("click", () => {
+    const i = (QL.indexOf(RENDER.userLevel) + 1) % QL.length;
+    RENDER.setUserLevel(QL[i]); save.quality = QL[i]; persistSave(); audio.ui(); refreshQ();
+  });
+  refreshQ();
   $("btn-shop-close").addEventListener("click", closeModal);
   $("btn-load-close").addEventListener("click", closeModal);
   $("btn-load-confirm").addEventListener("click", startRace);
@@ -910,23 +923,25 @@ function setupUI() {
 
 /* --------------------------------- INIT ------------------------------------ */
 function onResize() { RENDER.resize(true); }
-function bootError() {
+function bootError(msg) {
+  const ld = $("loading"); if (ld) ld.remove();
   const d = document.createElement("div");
   d.id = "boot-error";
-  d.innerHTML = "<div><h1>MOTEUR 3D INDISPONIBLE</h1><p>Three.js n'a pas pu etre charge (fichier <b>lib/three.min.js</b> manquant et acces Internet impossible).</p><p>Verifie que le dossier <b>lib</b> est bien a cote de index.html, puis recharge la page.</p></div>";
+  d.innerHTML = "<div><h1>MOTEUR 3D INDISPONIBLE</h1><p>" + (msg || "Le moteur 3D n'a pas pu etre charge (dossier <b>lib</b> manquant ?).") + "</p></div>";
   document.body.appendChild(d);
 }
 let bootDone = false;
 function init() {
   if (!window.THREE) {
-    const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
-    s.onload = init;
-    s.onerror = bootError;
-    document.head.appendChild(s);
+    bootError("Le fichier <b>lib/three.min.js</b> est introuvable : verifie que le dossier <b>lib</b> est bien a cote de index.html.");
     return;
   }
-  RENDER.init($("webgl"), { preserve: /[?&]manual=1/.test(location.search) });
+  try {
+    RENDER.init($("webgl"), { preserve: /[?&]manual=1/.test(location.search), level: save.quality });
+  } catch (err) {
+    bootError("Ton navigateur ou ta carte graphique n'a pas pu démarrer WebGL (moteur 3D). Essaie Chrome, Edge ou Firefox à jour, et vérifie que l'accélération matérielle est activée.");
+    return;
+  }
   renderer = RENDER.renderer;
   RENDER.onResize = (w, h) => {
     viewZoom = clamp(1.5 / (w / h), 1, 1.55);

@@ -31,7 +31,7 @@
     <div class="hud-clockbox">
       <div class="clock-line">
         <svg class="bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6zm-2 15a2 2 0 0 0 4 0z"/></svg>
-        <div class="clock-time" id="hud-clock">1:30</div>
+        <div class="clock-time" id="hud-clock">1:06</div>
       </div>
       <div class="clock-label">SONNERIE DU COLLÈGE</div>
       <div class="track" id="hud-track">
@@ -40,7 +40,7 @@
         <b class="mk bike" id="mk-bike"></b>
         <b class="mk school"><svg viewBox="0 0 24 24"><path d="M12 3 2 9v2h20V9L12 3zM4 12v7H2v2h20v-2h-2v-7h-2v7h-3v-7h-2v7h-2v-7H9v7H6v-7H4z"/></svg></b>
       </div>
-      <div class="clock-sub"><span id="hud-dist">1500 m</span><span id="hud-mode">CAP SUR LE COLLÈGE</span></div>
+      <div class="clock-sub"><span id="hud-dist">2000 m</span><span id="hud-mode">CAP SUR LE COLLÈGE</span></div>
     </div>
     <div class="hud-btns hud-spacer"></div>
   </div>
@@ -100,7 +100,7 @@
   <div class="home-inner">
     <div class="logo-kicker">Course urbaine &middot; 8h55 &middot; dernier avertissement</div>
     <h1 class="game-title"><span class="t-motor">MOTOR</span><span class="t-furax">FURAX</span></h1>
-    <p class="home-tag">La sonnerie retentit dans <b>80 secondes</b>. Le collège est à l'autre bout de la ville. Ton père est derrière toi. Ta copine t'attend. Les manifestants bloquent la rue. <b>Fonce.</b></p>
+    <p class="home-tag">La sonnerie retentit dans <b id="tag-time">66 secondes</b>. Le collège est à l'autre bout de la ville. Ton père est derrière toi. Ta copine t'attend. Les manifestants bloquent la rue. <b>Fonce.</b></p>
     <button id="btn-play" class="btn btn-xl" type="button">JOUER</button>
     <p class="home-hint">Entrée &middot; Espace &middot; ou clique</p>
   </div>
@@ -123,6 +123,10 @@
     <div class="menu-foot">
       <span>Record : <b id="menu-best">--</b></span>
       <span>Moto : <b id="menu-bike">CROSS 125</b></span>
+    </div>
+    <div class="menu-foot menu-foot-2">
+      <button id="btn-quality" class="link-btn" type="button">GRAPHISMES : <b>AUTO</b></button>
+      <span class="hint-keys">Flèches / ZQSD · Espace saut · Maj nitro</span>
     </div>
   </div>
 </div>
@@ -201,7 +205,6 @@
 <script src="lib/three.min.js"></script>
 <script src="lib/three-extras/BufferGeometryUtils.js"></script>
 <script src="lib/three-extras/RoundedBoxGeometry.js"></script>
-<script src="lib/three-extras/GLTFLoader.js"></script>
 <script src="js/00-utils.js"></script>
 <script src="js/01-audio.js"></script>
 <script src="js/02-state-input.js"></script>

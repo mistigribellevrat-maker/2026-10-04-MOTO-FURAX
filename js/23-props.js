@@ -10,7 +10,7 @@ const CAR_CACHE = {};
 function propGroup(bb, name) {
   const g = bb.finish();
   g.name = name;
-  return g;
+  return markShared(g);
 }
 
 /* ---------------------------------- ARBRES ---------------------------------- */
@@ -203,6 +203,7 @@ function makeCarProto(kind, color) {
   });
   const g = propGroup(bb, "car_" + kind);
   g.userData = { L: L, W: W };
+  markShared(g);
   CAR_CACHE[key] = g;
   return g;
 }

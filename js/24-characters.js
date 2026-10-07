@@ -235,11 +235,11 @@ function makeProtest() {
     const sign = new THREE.Group();
     sign.position.set(signArm.position.x + wr[0], signArm.position.y + wr[1], wr[2]);
     const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.2, 6), GFX.mat.matte.clone());
-    stick.material.vertexColors = false; stick.material.color.set(0x8a6b4a);
+    stick.material.vertexColors = false; stick.material.color.set(0x8a6b4a); ownMat(stick.material);
     stick.position.y = 0.2; stick.castShadow = true;
     const pb = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.64, 0.035), new THREE.MeshStandardMaterial({ roughness: 0.7, metalness: 0, color: 0x888888 }));
     const tex = TEX.protestSigns[rndInt(0, TEX.protestSigns.length - 1)];
-    pb.material = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.65, metalness: 0, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.08 });
+    pb.material = ownMat(new THREE.MeshStandardMaterial({ map: tex, roughness: 0.65, metalness: 0, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.08 }));
     pb.position.set(0, 0.88, 0); pb.castShadow = true;
     sign.add(stick, pb);
     sign.rotation.z = rnd(-0.1, 0.1);

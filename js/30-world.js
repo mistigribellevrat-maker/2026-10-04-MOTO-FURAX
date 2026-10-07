@@ -6,6 +6,50 @@
 
 const FACADE_X = CFG.ROAD_W / 2 + CFG.SIDEWALK_W + 0.6; // plan des facades (12.2)
 
+// Clone un accessoire statique, marque pour etre fusionne dans le mesh unique du chunk
+function prop(proto) { const o = proto.clone(); o.userData.batch = true; return o; }
+// Fusionne tous les accessoires statiques du chunk (lampadaires, arbres, bancs, grilles...) en UN mesh
+const _bm = new THREE.Matrix4();
+function batchProps(c) {
+  const list = c.children.filter((o) => o.userData.batch);
+  if (list.length < 2) return;
+  const geos = [];
+  list.forEach((g) => {
+    g.updateMatrix();
+    g.children.forEach((m) => {
+      if (!m.isMesh || m.material !== GFX.mat.uni) return;
+      m.updateMatrix();
+      _bm.multiplyMatrices(g.matrix, m.matrix);
+      const gg = m.geometry.clone();
+      gg.applyMatrix4(_bm);
+      geos.push(gg);
+    });
+    c.remove(g);
+  });
+  if (!geos.length) return;
+  const merged = THREE.BufferGeometryUtils.mergeBufferGeometries(geos, false);
+  geos.forEach((g) => g.dispose());
+  merged.computeBoundingSphere();
+  const mesh = new THREE.Mesh(merged, GFX.mat.uni);
+  mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.ownGeo = true;
+  c.add(mesh);
+}
+// Rangees de grille pre-fusionnees (n sections de 4 m, centrees sur z = 0)
+const _fenceRows = {};
+function fenceRow(n) {
+  if (_fenceRows[n]) return _fenceRows[n];
+  const geos = [];
+  const one = PROP.fence.children[0];
+  for (let i = 0; i < n; i++) { const g = one.geometry.clone(); g.translate(0, 0, (i - (n - 1) / 2) * 4); geos.push(g); }
+  const merged = THREE.BufferGeometryUtils.mergeBufferGeometries(geos, false);
+  geos.forEach((g) => g.dispose());
+  const grp = new THREE.Group();
+  const m = new THREE.Mesh(merged, GFX.mat.uni); m.castShadow = true; m.receiveShadow = true;
+  grp.add(m);
+  _fenceRows[n] = markShared(grp);
+  return grp;
+}
+
 function buildRoad() {
   const L = CFG.TOTAL_DIST + 320;
   const zc = -(CFG.TOTAL_DIST / 2) + 60;
@@ -138,6 +182,7 @@ function layoutChunk(chunk, index, demo) {
   for (const side of [-1, 1]) buildSideBlock(c, side, zone, rng, diff, index, decals);
   streetFurniture(chunk, c, zone, rng, decals, index);
   roadDecals(c, zone, rng, decals, index);
+  batchProps(c);
   const dm = decals.build();
   if (dm) c.add(dm);
   if (!demo && !DBG.noObstacles && dist < CFG.TOTAL_DIST - 60) spawnPattern(chunk, c, 0, dist, zone, rng, diff);
@@ -192,20 +237,20 @@ function fillerLot(c, side, z0, z1, rng) {
   g.position.set(x0 + side * w / 2, 0.05, zc);
   g.receiveShadow = true;
   c.add(g);
-  const wall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4.2, len), new THREE.MeshStandardMaterial({ color: 0xbfb49d, roughness: 0.95 }));
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4.2, len), ownMat(new THREE.MeshStandardMaterial({ color: 0xbfb49d, roughness: 0.95 })));
   wall.position.set(x0 + side * (w + 0.2), 2.1, zc);
   wall.castShadow = true; wall.receiveShadow = true;
   c.add(wall);
   const nT = Math.max(1, Math.floor(len / 6));
   for (let i = 0; i < nT; i++) {
-    const t = PROP.tree[Math.floor(rng() * PROP.tree.length)].clone();
+    const t = prop(PROP.tree[Math.floor(rng() * PROP.tree.length)]);
     t.position.set(x0 + side * (2.5 + rng() * 7), 0.05, z0 + (i + 0.5) * (len / nT));
     t.rotation.y = rng() * 6.3;
     t.scale.setScalar(0.9 + rng() * 0.5);
     c.add(t);
   }
-  const f = PROP.fence;
-  for (let z = z0; z < z1 - 1; z += 4) { const fc = f.clone(); fc.position.set(x0 + side * 0.2, 0, z + 2); c.add(fc); }
+  const nF = Math.floor((z1 - z0) / 4);
+  if (nF > 0) { const fc = prop(fenceRow(nF)); fc.position.set(x0 + side * 0.2, 0, z0 + nF * 2); c.add(fc); }
 }
 
 function buildParking(c, side, rng) {
@@ -218,7 +263,7 @@ function buildParking(c, side, rng) {
   lot.position.set(baseX + side * 13, 0.04, 0);
   lot.receiveShadow = true;
   c.add(lot);
-  const lineMat = new THREE.MeshBasicMaterial({ color: 0xdfe3e8 });
+  const lineMat = ownMat(new THREE.MeshBasicMaterial({ color: 0xdfe3e8 }));
   for (let z = -H + 4; z < H - 4; z += 5) {
     const ln = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 0.12), lineMat);
     ln.rotation.x = -Math.PI / 2;
@@ -236,22 +281,23 @@ function buildParking(c, side, rng) {
     }
   }
   // grillage + haies de fond
-  for (let z = -H + 4; z < H - 4; z += 8) { const h = PROP.hedge.clone(); h.rotation.y = Math.PI / 2; h.position.set(baseX + side * 24.5, 0, z + 4); c.add(h); }
+  for (let z = -H + 4; z < H - 4; z += 8) { const h = prop(PROP.hedge); h.rotation.y = Math.PI / 2; h.position.set(baseX + side * 24.5, 0, z + 4); c.add(h); }
   // barriere d'entree
   if (rng() < 0.5) {
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 5), new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.5 }));
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 5), ownMat(new THREE.MeshStandardMaterial({ color: 0xf2c200, roughness: 0.5 })));
     bar.position.set(baseX + side * 1.0, 1.0, rng() * 20 - 10);
     c.add(bar);
   }
 }
 
 function makeFenceProto() {
+  // section de 4 m orientee le long de la rue (axe z)
   const bb = new BB();
   const dark = 0x23262b;
-  bb.g("metal").box(4, 0.06, 0.06, 0, 1.15, 0, dark);
-  bb.g("metal").box(4, 0.06, 0.06, 0, 0.35, 0, dark);
-  for (let i = 0; i <= 16; i++) bb.g("metal").box(0.035, 1.1, 0.035, -2 + i * 0.25, 0.65, 0, dark);
-  [-2, 2].forEach((x) => { bb.g("metal").box(0.1, 1.4, 0.1, x, 0.7, 0, dark); bb.g("metal").sphere(0.07, x, 1.45, 0, 0xc9a73a, { ws: 8, hs: 6 }); });
+  bb.g("metal").box(0.06, 0.06, 4, 0, 1.15, 0, dark);
+  bb.g("metal").box(0.06, 0.06, 4, 0, 0.35, 0, dark);
+  for (let i = 0; i <= 16; i++) bb.g("metal").box(0.035, 1.1, 0.035, 0, 0.65, -2 + i * 0.25, dark);
+  [-2, 2].forEach((z) => { bb.g("metal").box(0.1, 1.4, 0.1, 0, 0.7, z, dark); bb.g("metal").sphere(0.07, 0, 1.45, z, 0xc9a73a, { ws: 8, hs: 6 }); });
   return propGroup(bb, "fence");
 }
 
@@ -268,43 +314,39 @@ function buildPark(c, side, rng, index) {
   lawn.receiveShadow = true;
   c.add(lawn);
   // allee
-  const path = new THREE.Mesh(new THREE.PlaneGeometry(2.4, CFG.CHUNK_LEN), new THREE.MeshStandardMaterial({ color: 0xcdb892, roughness: 0.95 }));
+  const path = new THREE.Mesh(new THREE.PlaneGeometry(2.4, CFG.CHUNK_LEN), ownMat(new THREE.MeshStandardMaterial({ color: 0xcdb892, roughness: 0.95 })));
   path.rotation.x = -Math.PI / 2;
   path.position.set(inner + side * 5.6, 0.065, 0);
   path.receiveShadow = true;
   c.add(path);
   // grille en fer forge le long du trottoir
-  for (let z = -H; z < H; z += 4) {
-    const f = PROP.fence.clone();
-    f.position.set(inner + side * 0.3, 0, z + 2);
-    c.add(f);
-  }
+  { const f = prop(fenceRow(CFG.CHUNK_LEN / 4)); f.position.set(inner + side * 0.3, 0, 0); c.add(f); }
   // arbres
   const nTrees = 4 + Math.floor(rng() * 3);
   for (let i = 0; i < nTrees; i++) {
-    const t = PROP.tree[Math.floor(rng() * PROP.tree.length)].clone();
+    const t = prop(PROP.tree[Math.floor(rng() * PROP.tree.length)]);
     t.position.set(inner + side * (7 + rng() * 14), 0.05, -H + 5 + rng() * 70);
     t.rotation.y = rng() * 6.3;
     t.scale.setScalar(0.95 + rng() * 0.5);
     c.add(t);
   }
   for (let i = 0; i < 2; i++) {
-    const bench = PROP.bench.clone();
+    const bench = prop(PROP.bench);
     bench.position.set(inner + side * 3.2, 0.05, -H + 12 + rng() * 56);
     bench.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
     c.add(bench);
   }
-  const fl = PROP.flowers.clone();
+  const fl = prop(PROP.flowers);
   fl.position.set(inner + side * 9, 0.05, -H + 15 + rng() * 50);
   fl.rotation.y = rng() * 3;
   c.add(fl);
   if (rng() < 0.6) {
     const px = inner + side * (11 + rng() * 6), pz = -H + 18 + rng() * 44;
-    const pond = new THREE.Mesh(new THREE.CircleGeometry(3.6 + rng() * 1.6, 28), new THREE.MeshStandardMaterial({ color: 0x2d6f94, roughness: 0.04, metalness: 0.35, envMapIntensity: 1.8 }));
+    const pond = new THREE.Mesh(new THREE.CircleGeometry(3.6 + rng() * 1.6, 28), ownMat(new THREE.MeshStandardMaterial({ color: 0x2d6f94, roughness: 0.04, metalness: 0.35, envMapIntensity: 1.8 })));
     pond.rotation.x = -Math.PI / 2;
     pond.position.set(px, 0.09, pz);
     c.add(pond);
-    const rim = new THREE.Mesh(new THREE.RingGeometry(3.7 + 0.0, 4.2, 28), new THREE.MeshStandardMaterial({ color: 0x9a9388, roughness: 0.9 }));
+    const rim = new THREE.Mesh(new THREE.RingGeometry(3.7 + 0.0, 4.2, 28), ownMat(new THREE.MeshStandardMaterial({ color: 0x9a9388, roughness: 0.9 })));
     rim.geometry.scale(1, 1, 1);
     rim.rotation.x = -Math.PI / 2;
     rim.position.set(px, 0.095, pz);
@@ -318,7 +360,7 @@ function buildPark(c, side, rng, index) {
     }
   }
   if (rng() < 0.5) {
-    const kiosk = PROP.kiosk.clone();
+    const kiosk = prop(PROP.kiosk);
     kiosk.position.set(inner + side * 5, 0.05, -H + 12 + rng() * 56);
     kiosk.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
     c.add(kiosk);
@@ -331,7 +373,7 @@ function streetFurniture(chunk, c, zone, rng, decals, index) {
   // lampadaires de chaque cote (bras tourne vers la chaussee)
   for (let z = -H + 8; z < H; z += 24) {
     [-1, 1].forEach((s) => {
-      const lamp = PROP.lamp.clone();
+      const lamp = prop(PROP.lamp);
       lamp.position.set(s * lx, SH, z + rng() * 4);
       lamp.rotation.y = s > 0 ? Math.PI / 2 : -Math.PI / 2;
       c.add(lamp);
@@ -341,13 +383,13 @@ function streetFurniture(chunk, c, zone, rng, decals, index) {
   for (let z = -H + 14; z < H; z += 25) {
     const s = rng() < 0.5 ? -1 : 1;
     if (rng() < 0.62 && zone !== "downtown") {
-      const t = PROP.tree[Math.floor(rng() * 2)].clone();
+      const t = prop(PROP.tree[Math.floor(rng() * 2)]);
       t.position.set(s * (CFG.ROAD_W / 2 + 2.0), SH, z + rng() * 6);
       t.scale.setScalar(0.8 + rng() * 0.3);
       t.rotation.y = rng() * 6.3;
       c.add(t);
     } else {
-      const bin = PROP.bin.clone();
+      const bin = prop(PROP.bin);
       bin.position.set(s * (CFG.ROAD_W / 2 + 1.9), SH, z + rng() * 6);
       c.add(bin);
     }
@@ -365,7 +407,7 @@ function streetFurniture(chunk, c, zone, rng, decals, index) {
       }
     }
     if (rng() < 0.5) {
-      const bs = PROP.busstop.clone();
+      const bs = prop(PROP.busstop);
       const s = rng() < 0.5 ? -1 : 1;
       bs.position.set(s * (CFG.ROAD_W / 2 + 3.9), SH, -H + 20 + rng() * 40);
       bs.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2;
@@ -375,16 +417,16 @@ function streetFurniture(chunk, c, zone, rng, decals, index) {
   if (zone === "park" || zone === "residential") {
     for (let z = -H + 14; z < H; z += 30) {
       const s = rng() < 0.5 ? -1 : 1;
-      const h = PROP.hydrant.clone();
+      const h = prop(PROP.hydrant);
       h.position.set(s * (CFG.ROAD_W / 2 + 3.3), SH, z + rng() * 6);
       c.add(h);
     }
   }
   if (zone === "school") {
     for (let z = -H + 6; z < H; z += 6) {
-      [-1, 1].forEach((s) => { const b = PROP.bollard.clone(); b.position.set(s * (CFG.ROAD_W / 2 + 0.55), SH, z); c.add(b); });
+      [-1, 1].forEach((s) => { const b = prop(PROP.bollard); b.position.set(s * (CFG.ROAD_W / 2 + 0.55), SH, z); c.add(b); });
     }
-    [-1, 1].forEach((s) => { const sg = PROP.sign.clone(); sg.position.set(s * (CFG.ROAD_W / 2 + 1.5), SH, -H * 0.2); sg.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2; c.add(sg); });
+    [-1, 1].forEach((s) => { const sg = prop(PROP.sign); sg.position.set(s * (CFG.ROAD_W / 2 + 1.5), SH, -H * 0.2); sg.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2; c.add(sg); });
   }
 }
 

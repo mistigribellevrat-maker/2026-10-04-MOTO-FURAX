@@ -170,6 +170,7 @@ const RENDER = {
     this.container = container;
     const q = new URLSearchParams(location.search);
     const wanted = q.get("quality") || q.get("q") || (opts.level || "auto");
+    this.userLevel = wanted;
     this.auto = wanted === "auto" && q.get("auto") !== "0";
     this.level = QUALITY_LEVELS[wanted] ? wanted : "high";
     const renderer = new THREE.WebGLRenderer({
@@ -177,6 +178,7 @@ const RENDER = {
       powerPreference: "high-performance", preserveDrawingBuffer: !!opts.preserve
     });
     renderer.autoClear = false;
+    renderer.info.autoReset = false;   // compteur d'image complet (toutes les passes)
     renderer.outputEncoding = THREE.LinearEncoding;
     renderer.toneMapping = THREE.NoToneMapping;
     renderer.shadowMap.enabled = true;
@@ -227,6 +229,14 @@ const RENDER = {
     if (!silent) this.scale = 1;
     if (this.shadowRefresh) this.shadowRefresh(L.shadow);
     this.resize(true);
+  },
+
+  // Reglage utilisateur : "auto" (adaptatif) ou un niveau fixe
+  setUserLevel(name) {
+    this.userLevel = name;
+    this.auto = name === "auto";
+    this.scale = 1; this.slowT = this.fastT = 0; this.lastAdjust = this.time;
+    this.applyLevel(name === "auto" ? "high" : name);
   },
 
   // Reduit / augmente la qualite d'un cran
@@ -292,6 +302,7 @@ const RENDER = {
   render(scene, camera, dt) {
     const r = this.renderer, fx = this.fx, L = this.cfg;
     this.time += dt;
+    r.info.reset();
     // 1. scene -> HDR
     r.setRenderTarget(this.rtScene);
     r.clear(true, true, false);
