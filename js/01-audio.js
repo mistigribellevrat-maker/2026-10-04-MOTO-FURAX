@@ -181,3 +181,110 @@ class SoundEngine {
   uiBig() { this.beep(700, 0.08, "square", 0.09); setTimeout(() => this.beep(1050, 0.12, "square", 0.09), 70); }
 }
 const audio = new SoundEngine();
+
+/* ============================================================================
+   MUSIQUE GENERATIVE — synthwave composee par le code (aucun fichier audio, aucun droit d'auteur).
+   Grille de 16 doubles-croches a 126 BPM, progression La mineur : Am - F - C - G.
+   Modes : "menu" (nappes + arpege doux) et "race" (batterie, basse, arpege) ; l'intensite monte avec la nitro.
+   ============================================================================ */
+class MusicEngine {
+  constructor(a) {
+    this.a = a; this.mode = null; this.level = 1; this.timer = null; this.step = 0; this.bar = 0; this.next = 0;
+    this.bpm = 126; this.duck = 1; this.ready = false;
+    this.roots = [57, 53, 60, 55];                         // La2, Fa2, Do3, Sol2 (notes MIDI)
+    this.arp = [[0, 7, 12, 15], [0, 5, 12, 17], [0, 7, 12, 16], [0, 7, 11, 14]]; // intervalles par accord
+  }
+  _setup() {
+    if (this.ready || !this.a.ok) return;
+    const c = this.a.ctx;
+    this.out = c.createGain(); this.out.gain.value = 0.0;
+    // petit delai en retour pour l'espace
+    const d = c.createDelay(1); d.delayTime.value = 60 / this.bpm * 0.75;
+    const fb = c.createGain(); fb.gain.value = 0.32;
+    const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
+    this.send = c.createGain(); this.send.gain.value = 0.35;
+    this.send.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(this.out);
+    this.dry = c.createGain(); this.dry.gain.value = 1;
+    this.dry.connect(this.out); this.out.connect(this.a.masterGain);
+    this.ready = true;
+  }
+  static hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  start(mode) {
+    if (!this.a.ok) return;
+    this._setup();
+    if (this.mode === mode && this.timer) return;
+    this.mode = mode;
+    const c = this.a.ctx;
+    this.out.gain.cancelScheduledValues(c.currentTime);
+    this.out.gain.setTargetAtTime(mode === "menu" ? 0.34 : 0.5, c.currentTime, 0.4);
+    if (!this.timer) {
+      this.next = c.currentTime + 0.08; this.step = 0; this.bar = 0;
+      this.timer = setInterval(() => this._tick(), 35);
+    }
+  }
+  stop(fade) {
+    if (!this.ready) return;
+    const c = this.a.ctx;
+    this.out.gain.setTargetAtTime(0, c.currentTime, fade || 0.25);
+    this.mode = null;
+    if (this.timer) { clearInterval(this.timer); this.timer = null; }
+  }
+  setLevel(l) { this.level = l; }
+  setDuck(on) { if (!this.ready) return; this.out.gain.setTargetAtTime(on ? 0.12 : (this.mode === "menu" ? 0.34 : 0.5), this.a.ctx.currentTime, 0.12); }
+  _tick() {
+    const c = this.a.ctx;
+    if (!c || c.state !== "running") return;
+    const stepDur = 60 / this.bpm / 4;
+    while (this.next < c.currentTime + 0.18) {
+      this._play(this.step, this.next, stepDur);
+      this.next += stepDur; this.step++;
+      if (this.step >= 16) { this.step = 0; this.bar = (this.bar + 1) % 4; }
+    }
+  }
+  _note(type, hz, t, dur, vol, lpHz, send) {
+    const c = this.a.ctx, o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
+    o.type = type; o.frequency.setValueAtTime(hz, t);
+    f.type = "lowpass"; f.frequency.setValueAtTime(lpHz, t); f.Q.value = 2;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(f); f.connect(g); g.connect(this.dry);
+    if (send) { const s = c.createGain(); s.gain.value = send; g.connect(s); s.connect(this.send); }
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  _noise(t, dur, type, freq, vol) {
+    const c = this.a.ctx, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = this.a.noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = 0.8;
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.dry);
+    s.start(t, Math.random()); s.stop(t + dur + 0.02);
+  }
+  _kick(t, vol) {
+    const c = this.a.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(140, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.14);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+    o.connect(g); g.connect(this.dry); o.start(t); o.stop(t + 0.25);
+  }
+  _play(s, t, sd) {
+    const race = this.mode === "race", root = this.roots[this.bar], ch = this.arp[this.bar], lvl = this.level;
+    // nappe (pad) : un accord par mesure
+    if (s === 0) {
+      [0, 7, 15].forEach((iv, k) => this._note("sawtooth", MusicEngine.hz(root + iv + 12) * (1 + (k - 1) * 0.004), t, sd * 15.5, race ? 0.035 : 0.05, race ? 900 : 700, 0.3));
+    }
+    // basse : croches
+    if (race) {
+      if (s % 2 === 0) this._note("sawtooth", MusicEngine.hz(root - 12 + ((s / 2) % 4 === 3 ? 12 : 0)), t, sd * 1.7, 0.16, 520 + lvl * 120, 0);
+      // batterie
+      if (s % 4 === 0) this._kick(t, 0.9);
+      if (s === 4 || s === 12) this._noise(t, 0.16, "bandpass", 1900, 0.32);
+      if (s % 2 === 1 || (lvl > 1 && s % 2 === 0)) this._noise(t, 0.045, "highpass", 8000, lvl > 1 ? 0.13 : 0.08);
+      // arpege
+      const iv = ch[s % 4] + (lvl > 1 && s % 8 >= 4 ? 12 : 0);
+      if (lvl > 0) this._note("square", MusicEngine.hz(root + 24 + iv), t, sd * 1.5, 0.045 + (lvl > 1 ? 0.025 : 0), 1700 + lvl * 700, 0.55);
+    } else {
+      if (s % 8 === 0) this._kick(t, 0.5);
+      if (s === 4) this._noise(t, 0.12, "bandpass", 1900, 0.14);
+      if (s % 2 === 0) this._note("triangle", MusicEngine.hz(root + 24 + ch[(s / 2) % 4]), t, sd * 3, 0.05, 1500, 0.6);
+      if (s % 4 === 2) this._noise(t, 0.04, "highpass", 8000, 0.05);
+    }
+  }
+}
+const music = new MusicEngine(audio);

@@ -336,3 +336,13 @@ body.paused #hud *,body.paused #dmgborder,body.paused #flash,body.paused #countd
 .link-btn:hover{color:#fff}
 .menu-foot-2{align-items:center;margin-top:-6px}
 .hint-keys{font-size:.74rem;color:#6f7b90;letter-spacing:.06em}
+
+/* retire les anciens filtres CSS : le post-traitement 3D gere vignette et grain */
+.scanlines,#vignette{display:none!important}
+@media (max-width:640px){
+  .logo-kicker{white-space:normal;letter-spacing:.2em;text-align:center;font-size:.6rem;line-height:1.5}
+  .mobile-controls{padding:10px 10px 16px;gap:6px}
+  .mc-group{gap:6px}
+  .mc-btn{min-width:48px;height:54px;border-radius:12px;font-size:.58rem}
+  .hud-vitals .vlabel span{font-size:.9em}
+}

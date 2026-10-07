@@ -24,6 +24,14 @@ function setApp(next) {
   if (next === APP.RACE || next === APP.COUNTDOWN) { three.visible = true; }
   if (next === APP.WIN || next === APP.LOSE) { /* le fond reste la scene 3D figee */ }
   if (prev === APP.PAUSE && next === APP.RACE) audio.resume();
+  // musique : douce dans les menus, pleine pendant la course, attenuee en pause, coupee a la fin
+  if (audio.ok) {
+    if (next === APP.MENU) music.start("menu");
+    else if (next === APP.COUNTDOWN || next === APP.RACE) { music.start("race"); music.setDuck(false); }
+    else if (next === APP.PAUSE) music.setDuck(true);
+    else if (next === APP.WIN || next === APP.LOSE) music.stop(0.3);
+    else if (next === APP.HOME) music.stop(0.3);
+  }
   refreshMuteBtn();
   onAppChange(prev, next);
 }

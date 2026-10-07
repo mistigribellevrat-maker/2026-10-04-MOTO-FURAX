@@ -210,7 +210,6 @@ function updateAttract(dt) {
   player.scarf.rotation.x = -0.15 - 0.3 + Math.sin(clockT * 21) * 0.06;
   player.shadow.position.set(player.x, 0.015, player.z);
   recycleChunks(player.z, true);
-  const nitroLike = 0;
   smokeAttract(dt);
 }
 function smokeAttract(dt) {
@@ -301,6 +300,7 @@ function updatePlayer(dt, st) {
     st.nitro = Math.min(100, st.nitro + CFG.NITRO_REGEN * dt);
   }
   audio.setNitro(nitroActive);
+  music.setLevel(nitroActive ? 2 : (player.speed > 8 ? 1 : 0));
   audio.setEngine(player.speed / def.maxSpeed, throttle, dt);
 
   const top = nitroActive ? def.nitroSpeed : def.maxSpeed;
@@ -944,7 +944,7 @@ function init() {
   }
   renderer = RENDER.renderer;
   RENDER.onResize = (w, h) => {
-    viewZoom = clamp(1.5 / (w / h), 1, 1.55);
+    viewZoom = clamp(1.45 / (w / h), 1, 2.8);   // garde ~17 m de largeur visible : route + trottoirs
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   };
