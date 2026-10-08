@@ -43,7 +43,8 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   const ev = (fn, arg) => page.evaluate(fn, arg);
   const test = async (name, fn) => { currentName = name; console.log("\n▶ " + name); try { await fn(); } catch (e) { ok(false, "exception : " + e.message); } };
   // lance une course neuve et saute le compte a rebours
-  const fresh = async (godMode) => {
+  const fresh = async (godMode, pilot) => {
+    await ev((pi) => { MF.debug.pilot(pi || 0); }, pilot);
     await ev(() => { MF.debug.noObstacles(true); MF.debug.god(false); MF.debug.key("up", false); MF.debug.key("down", false); MF.debug.key("left", false); MF.debug.key("right", false); MF.debug.key("nitro", false); MF.startRace(); MF.debug.advance(4.3); MF.debug.clear(); });
     if (godMode) await ev(() => MF.debug.god());
   };
@@ -60,6 +61,8 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     ok(await ev(() => !!document.getElementById("btn-play") && document.getElementById("btn-play").offsetParent !== null), "bouton JOUER visible");
     ok(await ev(() => typeof MF.CFG.HOME_IMAGE === "string" && /\.jpg$/.test(MF.CFG.HOME_IMAGE)), "emplacement d'image .jpg configurable (CFG.HOME_IMAGE)", await ev(() => MF.CFG.HOME_IMAGE));
     ok(await ev(() => !!document.getElementById("home-bg")), "calque d'image de fond present");
+    const pr = await ev(() => { const r = document.getElementById("home-poster").getBoundingClientRect(); return { w: r.width, h: r.height, top: r.top, bottom: r.bottom, vh: innerHeight }; });
+    ok(pr.w > 300 && pr.h > 400 && pr.top >= 0 && pr.bottom <= pr.vh, "grand emplacement pour l'affiche du jeu, entierement visible", pr);
   });
   await test("Transitions interdites depuis l'accueil", async () => {
     await page.keyboard.press("KeyR"); await page.keyboard.press("Escape"); await page.keyboard.press("KeyP");
@@ -88,8 +91,23 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     ok(await ev(() => MF.state) === "HOME", "QUITTER renvoie a l'ACCUEIL");
     await page.click("#btn-play");
   });
-  await test("Debuter partie : MENU -> compte a rebours -> JEU_ACTIF", async () => {
+  await test("Choix du pilote : 5 pilotes, photos, caracteristiques", async () => {
     await page.click("#btn-new");
+    ok(await ev(() => !document.getElementById("modal-pilot").classList.contains("hidden")), "DEBUTER PARTIE ouvre le choix du pilote");
+    const names = await ev(() => [...document.querySelectorAll("#pilot-grid .pilot-card h3")].map((h) => h.textContent));
+    ok(names.join("|") === "OSCAR|ARTHUR|TOM|YANIS|CLOTHILDE", "Oscar, Arthur, Tom, Yanis et Clothilde", names);
+    ok(await ev(() => document.querySelectorAll("#pilot-grid .pilot-photo img").length === 5), "un emplacement photo par pilote");
+    ok(await ev(() => [...document.querySelectorAll("#pilot-grid .pilot-photo img")].every((i, k) => i.getAttribute("src") === MF.CFG.PILOT_PHOTO_DIR + MF.PILOTS[k].id + ".jpg")), "photos attendues dans assets/pilotes/<prenom>.jpg");
+    const powers = await ev(() => MF.PILOTS.map((p) => p.power.id));
+    ok(new Set(powers).size === 5, "5 pouvoirs differents", powers);
+    const b = await ev(() => { const r = document.getElementById("btn-pilot-go").getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; });
+    ok(b, "bouton C'EST PARTI visible sans defilement");
+    await page.keyboard.press("ArrowRight");
+    ok(await ev(() => document.querySelectorAll("#pilot-grid .pilot-card")[1].classList.contains("selected")), "fleche droite : selection du pilote suivant");
+    await page.keyboard.press("ArrowLeft");
+  });
+  await test("Debuter partie : MENU -> compte a rebours -> JEU_ACTIF", async () => {
+    await page.click("#btn-pilot-go");
     ok(await ev(() => MF.state) === "COUNTDOWN", "demarrage immediat (compte a rebours)");
     await ev(() => MF.debug.advance(4.3));
     ok(await ev(() => MF.state) === "RACE", "course active apres le compte a rebours");
@@ -263,16 +281,19 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   });
 
   /* ---------------------------- POURSUITE DU PERE ---------------------------- */
-  await test("Poursuite : distance stable/croissante a vitesse de pointe, decroissante si ralentissement", async () => {
+  await test("Poursuite : a fond sans nitro papa grignote, la nitro creuse l'ecart, le freinage le rapproche", async () => {
     await fresh(true);
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(6); });
     const d1 = await ev(() => MF.dad.dist);
     await ev(() => MF.debug.advance(8));
     const d2 = await ev(() => MF.dad.dist);
-    ok(d2 >= d1 - 0.05, "vitesse de pointe maintenue : la distance ne diminue pas", { d1: +d1.toFixed(2), d2: +d2.toFixed(2) });
+    ok(d2 < d1 - 3, "vitesse de pointe sans nitro : papa finit par rattraper", { d1: +d1.toFixed(2), d2: +d2.toFixed(2) });
+    await ev(() => { MF.debug.setNitro(100); MF.debug.key("nitro", true); MF.debug.advance(2.5); MF.debug.key("nitro", false); });
+    const dn = await ev(() => MF.dad.dist);
+    ok(dn > d2 + 15, "la nitro creuse nettement l'ecart", { avant: +d2.toFixed(1), apres: +dn.toFixed(1) });
     await ev(() => { MF.debug.key("up", false); MF.debug.key("down", true); MF.debug.advance(2.5); });
     const d3 = await ev(() => MF.dad.dist);
-    ok(d3 < d2 - 5, "freinage : le pere se rapproche nettement", { d2: +d2.toFixed(1), d3: +d3.toFixed(1) });
+    ok(d3 < dn - 5, "freinage : le pere se rapproche nettement", { avant: +dn.toFixed(1), d3: +d3.toFixed(1) });
     const relspd = await ev(() => MF.dad.speed / MF.CFG.MAX_SPEED);
     ok(relspd > 0 && relspd < 1.05, "vitesse du poursuivant relative a la vitesse nominale", relspd);
   });
@@ -284,6 +305,61 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     let dmin = d1;
     for (let i = 0; i < 25; i++) { await ev(() => MF.debug.advance(0.1)); dmin = Math.min(dmin, await ev(() => MF.dad.dist)); }
     ok(dmin < d1 - 4, "apres le choc, papa a rattrape du terrain (distance minimale atteinte)", { avant: +d1.toFixed(1), minimum: +dmin.toFixed(1) });
+  });
+
+  /* ---------------------------- PILOTES & SURPRISES ---------------------------- */
+  await test("Pilotes : caracteristiques differentes", async () => {
+    const top = []; const hp = [];
+    for (let i = 0; i < 5; i++) {
+      await fresh(true, i);
+      await ev(() => { MF.debug.key("up", true); MF.debug.advance(7); });
+      top.push(+(await ev(() => MF.player.speed)).toFixed(1)); hp.push(await ev(() => MF.game.integrityMax));
+      await ev(() => MF.debug.key("up", false));
+    }
+    ok(top[2] > top[0] && top[2] === Math.max.apply(null, top), "Tom est le plus rapide", top);
+    ok(hp[1] === Math.max.apply(null, hp), "Arthur est le plus solide", hp);
+  });
+  await test("Pouvoirs : super saut, esquive, belier, hyper nitro, appel a papa", async () => {
+    await fresh(true, 0);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(2); MF.debug.readyPower(); MF.debug.power(); MF.debug.advance(0.25); });
+    ok(await ev(() => MF.player.y > 2.5), "Oscar : SUPER SAUT", await ev(() => MF.player.y));
+    await fresh(true, 3);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(2); MF.player.x = 0; MF.debug.key("right", true); MF.debug.readyPower(); MF.debug.power(); MF.debug.advance(0.25); MF.debug.key("right", false); });
+    ok(await ev(() => MF.player.x > 4), "Yanis : ESQUIVE (ecart lateral eclair)", await ev(() => MF.player.x));
+    await fresh(true, 1);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(3); MF.debug.readyPower(); MF.debug.power(); MF.debug.advance(0.05); });
+    const sp = await ev(() => MF.player.speed), hp0 = await ev(() => MF.game.integrity);
+    await ev(() => { MF.debug.spawn("protest", 0, -3, { freeze: true }); MF.debug.advance(0.3); });
+    ok(await ev(() => MF.player.speed) > sp * 0.9 && await ev(() => MF.game.integrity) === hp0, "Arthur : BELIER renverse les manifestants sans ralentir");
+    await fresh(true, 2);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(2); MF.debug.setNitro(0); MF.debug.readyPower(); MF.debug.power(); MF.debug.advance(1); });
+    ok(await ev(() => MF.player.speed > 50 && MF.game.nitro > 99), "Tom : HYPER NITRO (nitro illimitee)", await ev(() => [MF.player.speed, MF.game.nitro]));
+    await fresh(true, 4);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(4); MF.debug.readyPower(); MF.debug.power(); MF.debug.advance(3); });
+    ok(await ev(() => MF.dad.speed < 8), "Clothilde : APPEL A PAPA (il s'arrete)", await ev(() => MF.dad.speed));
+    await ev(() => MF.debug.key("up", false));
+  });
+  await test("Voiture folle : arrive par derriere, se rabat, renverse", async () => {
+    await fresh(true, 0);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(4); MF.debug.noEvents(); MF.debug.god(false); MF.debug.crazyCar(); });
+    ok(await ev(() => document.getElementById("hud-threat").classList.contains("on") || (MF.debug.advance(0.05), document.getElementById("hud-threat").classList.contains("on"))), "alerte affichee pendant qu'elle arrive");
+    const c0 = await ev(() => MF.debug.crazy());
+    ok(c0 && c0.z > (await ev(() => MF.player.z)), "elle apparait derriere la moto", c0);
+    const hp0 = await ev(() => MF.game.integrity);
+    let hit = false;
+    for (let i = 0; i < 40 && !hit; i++) { await ev(() => MF.debug.advance(0.1)); const c = await ev(() => MF.debug.crazy()); hit = !!(c && c.hit); }
+    ok(hit, "si on ne fait rien, elle nous percute (queue de poisson)");
+    ok(await ev(() => MF.game.integrity) < hp0, "degats subis", { avant: hp0, apres: await ev(() => MF.game.integrity) });
+    await ev(() => MF.debug.key("up", false));
+  });
+  await test("Courses differentes a chaque partie", async () => {
+    const layout = async () => {
+      await ev(() => { MF.debug.noObstacles(false); MF.startRace(); MF.debug.advance(4.3); });
+      return ev(() => MF.ents.filter((e) => e.chunk && e.type !== "parked").map((e) => e.type + Math.round(e.x)).sort().join(","));
+    };
+    const a = await layout(), b = await layout();
+    ok(a !== b, "obstacles places differemment d'une course a l'autre");
+    await ev(() => MF.debug.noObstacles(true));
   });
 
   /* ---------------------------- FIN DE PARTIE ---------------------------- */

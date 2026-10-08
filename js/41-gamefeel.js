@@ -150,19 +150,37 @@ function bikeFx(dt, st, nitroActive) {
 }
 
 /* ----------------------------------- Papa ----------------------------------- */
-function ensureDadBubble() {
-  if (dad.bubble) return;
+// Bulle de papa : il crie le prenom du pilote choisi ("OSCAAAR !!"), ou "ALLO ?" quand il decroche
+const _bubbleTex = {};
+function bubbleTexture(text) {
+  if (_bubbleTex[text]) return _bubbleTex[text];
   const c = cv(512, 192), x = c.getContext("2d");
   x.fillStyle = "#fff"; x.strokeStyle = "#d62828"; x.lineWidth = 12;
   x.beginPath(); x.moveTo(40, 20); x.lineTo(472, 20); x.quadraticCurveTo(496, 20, 496, 44); x.lineTo(496, 108); x.quadraticCurveTo(496, 132, 472, 132);
   x.lineTo(300, 132); x.lineTo(256, 176); x.lineTo(232, 132); x.lineTo(40, 132); x.quadraticCurveTo(16, 132, 16, 108); x.lineTo(16, 44); x.quadraticCurveTo(16, 20, 40, 20);
   x.fill(); x.stroke();
-  x.fillStyle = "#d62828"; x.font = "900 74px 'Arial Black', Impact, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
-  x.fillText("SAAAM !!", 256, 76);
+  x.fillStyle = "#d62828"; x.textAlign = "center"; x.textBaseline = "middle";
+  let fs = 74;
+  do { x.font = "900 " + fs + "px 'Arial Black', Impact, sans-serif"; fs -= 4; } while (x.measureText(text).width > 450 && fs > 30);
+  x.fillText(text, 256, 76);
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
-  dad.bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, fog: false, toneMapped: false }));
-  dad.bubble.scale.set(3.4, 1.28, 1); dad.bubble.renderOrder = 30; dad.bubble.visible = false;
-  worldGroup.add(dad.bubble);
+  _bubbleTex[text] = t;
+  return t;
+}
+function shoutName() {
+  const n = curPilot().name;
+  // etire la derniere voyelle : OSCAR -> OSCAAAR, YANIS -> YANIIIS
+  const m = n.match(/^(.*)([AEIOUY])([^AEIOUY]*)$/);
+  return (m ? m[1] + m[2].repeat(3) + m[3] : n) + " !!";
+}
+function ensureDadBubble() {
+  if (!dad.bubble) {
+    dad.bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTexture(shoutName()), transparent: true, depthTest: false, fog: false, toneMapped: false }));
+    dad.bubble.scale.set(3.4, 1.28, 1); dad.bubble.renderOrder = 30; dad.bubble.visible = false;
+    worldGroup.add(dad.bubble);
+  }
+  const tex = bubbleTexture(dad.callT > 0 ? "ALLÔ ?…" : shoutName());
+  if (dad.bubble.material.map !== tex) { dad.bubble.material.map = tex; dad.bubble.material.needsUpdate = true; }
 }
 function dadFx(dt) {
   ensureDadBubble();
@@ -172,7 +190,7 @@ function dadFx(dt) {
     papa.armL.rotation.x = Math.sin(clockT * 9) * 0.35;
     papa.head.rotation.z = Math.sin(clockT * 6) * 0.08;
   }
-  const near = dad.root.visible && dad.dist < 18;
+  const near = dad.root.visible && (dad.dist < 18 || dad.callT > 0);
   dad.bubble.visible = near && app === APP.RACE;
   if (dad.bubble.visible) {
     dad.bubble.position.set(dad.root.position.x, 4.6 + Math.sin(clockT * 6) * 0.1, dad.root.position.z);

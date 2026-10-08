@@ -46,6 +46,8 @@ function closeModal() {
 function refreshMenuInfo() {
   $("menu-best").textContent = save.best != null ? fmtTime(save.best) : "--";
   $("menu-bike").textContent = BIKES[save.bike].name;
+  $("menu-pilot").textContent = curPilot().name;
+  $("menu-score").textContent = save.bestScore ? String(save.bestScore) : "--";
   const det = $("slot-detail");
   if (save.best != null) {
     det.innerHTML = "Dernière course terminée. Meilleur temps : <span class='gold'>" + fmtTime(save.best) + "</span> &middot; " + save.runs + " tentative(s).";
@@ -56,7 +58,7 @@ function refreshMenuInfo() {
 function refreshMuteBtn() { const b = $("btn-mute"); b.classList.toggle("muted", !!save.muted); b.title = save.muted ? "Son coupé (M)" : "Son activé (M)"; }
 
 /* ------------------------------ 5. ENTREES ------------------------------- */
-const input = { up: false, down: false, left: false, right: false, nitro: false, jumpQueued: false, jumpHeld: false };
+const input = { up: false, down: false, left: false, right: false, nitro: false, jumpQueued: false, jumpHeld: false, powerQueued: false };
 const KEYMAP = {
   ArrowUp: "up", KeyW: "up", KeyZ: "up",
   ArrowDown: "down", KeyS: "down",
@@ -77,6 +79,12 @@ window.addEventListener("keydown", (e) => {
     if (app === APP.RACE) { input.jumpQueued = true; input.jumpHeld = true; }
     else if (app === APP.HOME) { beginJourney(); }
     else if (app === APP.WIN || app === APP.LOSE) { replay(); }
+  }
+  if ((e.code === "KeyE" || e.code === "KeyF") && app === APP.RACE) input.powerQueued = true;
+  if (modal === "modal-pilot") {
+    if (e.code === "ArrowLeft" || e.code === "KeyA" || e.code === "KeyQ") selectPilot(save.pilot - 1);
+    if (e.code === "ArrowRight" || e.code === "KeyD") selectPilot(save.pilot + 1);
+    if (e.code === "Enter" || e.code === "Space") { e.preventDefault(); startRace(); return; }
   }
   if (e.code === "Enter") {
     if (app === APP.HOME) beginJourney();
@@ -103,12 +111,13 @@ document.querySelectorAll(".mc-btn").forEach((btn) => {
   const on = (e) => {
     e.preventDefault(); audio.resume();
     if (k === "jump") { input.jumpQueued = true; input.jumpHeld = true; }
+    else if (k === "power") input.powerQueued = true;
     else input[k] = true;
   };
   const off = (e) => {
     e.preventDefault();
     if (k === "jump") input.jumpHeld = false;
-    else input[k] = false;
+    else if (k !== "power") input[k] = false;
   };
   btn.addEventListener("touchstart", on, { passive: false });
   btn.addEventListener("touchend", off, { passive: false });

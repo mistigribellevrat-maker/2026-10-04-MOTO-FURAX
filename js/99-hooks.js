@@ -8,6 +8,7 @@ window.MF = {
   get player() { return player; },
   get dad() { return dad; },
   get ents() { return ents; },
+  PILOTS: PILOTS,
   startRace: startRace,
   debug: {
     advance(sec) { const n = Math.round(sec * 60); for (let i = 0; i < n; i++) simStep(1 / 60); },
@@ -18,7 +19,7 @@ window.MF = {
     // fait apparaitre une entite de jeu a une position relative au joueur (tests)
     spawn(name, dx, dz, o) {
       o = o || {};
-      const f = { truck: makeTruck, cat: makeCat, protest: makeProtest, bus: makeBus, kid: makeScooterKid, ballkid: makeBallKid, cones: makeConeCluster, puddle: makePuddle, girlfriend: makeGirlfriend };
+      const f = { truck: makeTruck, cat: makeCat, protest: makeProtest, bus: makeBus, kid: makeScooterKid, ballkid: makeBallKid, cones: makeConeCluster, puddle: makePuddle, girlfriend: makeGirlfriend, ramp: makeRamp };
       const e = f[name]();
       e.x = player.x + dx; e.z = player.z + dz; e.chunk = null;
       e.obj.position.set(e.x, e.baseY || 0, e.z);
@@ -60,6 +61,14 @@ window.MF = {
     setIntegrity(v) { if (gameState) gameState.integrity = v; },
     win() { if (gameState) { player.z = -CFG.TOTAL_DIST - 1; } },
     lose(reason) { if (gameState) endRace(false, reason || "time"); },
-    setDad(v) { dad.dist = v; dad.speed = 0; }
+    setDad(v) { dad.dist = v; dad.speed = 0; },
+    pilot(i) { save.pilot = i; buildPlayer(); },
+    power() { input.powerQueued = true; },
+    readyPower() { if (gameState) gameState.power.cd = 0; },
+    crazyCar() { if (gameState) spawnCrazyCar(gameState); return crazyRef ? { x: crazyRef.x, z: crazyRef.z, phase: crazyRef.phase } : null; },
+    crazy() { return crazyRef ? { x: crazyRef.x, z: crazyRef.z, phase: crazyRef.phase, hit: !!crazyRef.hitPlayer } : null; },
+    oncoming() { if (gameState) spawnOncoming(gameState); },
+    noEvents() { if (gameState) gameState.evT = 1e9; },
+    seed() { return RUN_SEED; }
   }
 };

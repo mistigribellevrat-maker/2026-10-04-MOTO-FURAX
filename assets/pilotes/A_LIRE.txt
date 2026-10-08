@@ -1,0 +1,15 @@
+VISAGES DES PILOTES
+===================
+Dépose ici une photo par pilote, au format JPG, avec exactement ces noms :
+
+  oscar.jpg   arthur.jpg   tom.jpg   yanis.jpg   clothilde.jpg
+
+Format conseillé : portrait 3:4 (par ex. 600 × 800 px). L'image est recadrée
+automatiquement pour remplir la carte (centrée). Tant qu'une photo manque,
+une silhouette s'affiche à sa place.
+
+AFFICHE DU JEU
+==============
+L'affiche de l'écran d'accueil se place dans  assets/affiche.jpg
+(format conseillé 1200 × 1600, mais tout format est accepté : le cadre
+prend automatiquement les proportions de l'image).

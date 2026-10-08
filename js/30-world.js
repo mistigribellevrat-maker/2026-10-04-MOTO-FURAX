@@ -166,6 +166,9 @@ function clearChunkContent(chunk) {
   // les fonctions d'ambiance (canards...) liees a ce chunk sont retirees
   for (let i = ambient.length - 1; i >= 0; i--) if (ambient[i].chunk === chunk) ambient.splice(i, 1);
 }
+// Graine de course : tiree a chaque nouvelle partie -> les obstacles ne sont jamais au meme endroit
+let RUN_SEED = 0;
+function newRunSeed() { RUN_SEED = (Math.random() * 1e9) >>> 0; }
 function layoutChunk(chunk, index, demo) {
   clearChunkContent(chunk);
   const ud = chunk.userData;
@@ -185,7 +188,10 @@ function layoutChunk(chunk, index, demo) {
   batchProps(c);
   const dm = decals.build();
   if (dm) c.add(dm);
-  if (!demo && !DBG.noObstacles && dist < CFG.TOTAL_DIST - 60) spawnPattern(chunk, c, 0, dist, zone, rng, diff);
+  if (!demo && !DBG.noObstacles && dist < CFG.TOTAL_DIST - 60 && index > 0) {
+    const orng = mulberry32((index * 2654435761 + RUN_SEED) >>> 0);
+    spawnPattern(chunk, c, 0, dist, zone, orng, diff);
+  }
 }
 
 function roadDecals(c, zone, rng, decals, index) {
@@ -443,17 +449,31 @@ function registerSolid(chunk, obj, zLocal, x, hw, hl, type, damage) {
 /* ------------------------------- PATTERNS JEU ------------------------------ */
 function spawnPattern(chunk, c, zMid, dist, zone, rng, diff) {
   const lanes = [-4.5, 0, 4.5];
-  const nEvents = diff < 0.25 ? (rng() < 0.45 ? 1 : 2) : rndInt(1, 2) + (rng() < diff * 0.75 ? 1 : 0);
+  const dens = LEVELS[save.level].density || 1;
+  const H = CFG.CHUNK_LEN / 2;
+  // morceaux de bravoure : tremplin + manif sur toute la chaussee, ou barrage a une seule breche
+  const special = rng();
+  if (diff > 0.12 && special < 0.16 + diff * 0.12) return rampSetPiece(chunk, c, zone, rng);
+  if (diff > 0.08 && special < 0.36 + diff * 0.2) {
+    const gap = Math.floor(rng() * 3);
+    const zb = -H + 18 + rng() * (CFG.CHUNK_LEN - 40);
+    lanes.forEach((x, li) => { if (li !== gap) placeObstacle(chunk, c, x + rnd(-0.5, 0.5), zb + rnd(-1.5, 1.5), zone, rng, diff, true); });
+    placeItem(chunk, c, lanes[gap], zb + 6, rng);
+    // un obstacle isole en plus dans l'autre moitie du chunk
+    if (rng() < 0.4 + diff * 0.4) placeObstacle(chunk, c, lanes[Math.floor(rng() * 3)] + rnd(-1, 1), zb > 0 ? zb - 26 : zb + 26, zone, rng, diff);
+    return;
+  }
+  const nEvents = diff < 0.2 ? (rng() < 0.4 ? 1 : 2) : rndInt(1, 2) + (rng() < (diff * 0.9 + 0.1) * dens ? 1 : 0);
   const n = Math.min(3, nEvents);
   const shuffled = [0, 1, 2].sort(() => rng() - 0.5);
   const usedLanes = shuffled.slice(0, n);
   const freeLanes = shuffled.slice(n);
   usedLanes.forEach((li, i) => {
-    const zLocal = -CFG.CHUNK_LEN / 2 + 14 + (i * (CFG.CHUNK_LEN - 28)) / Math.max(1, n) + rng() * 8;
-    const x = lanes[li] + rnd(-1.1, 1.1);
+    const zLocal = -CFG.CHUNK_LEN / 2 + 12 + (i * (CFG.CHUNK_LEN - 24)) / Math.max(1, n) + rng() * 10;
+    const x = lanes[li] + rnd(-1.4, 1.4);
     placeObstacle(chunk, c, x, zLocal, zone, rng, diff);
   });
-  const itemCount = freeLanes.length > 1 ? 2 : (rng() < 0.6 ? 1 : 0);
+  const itemCount = freeLanes.length > 1 ? 2 : (rng() < 0.5 ? 1 : 0);
   for (let i = 0; i < itemCount; i++) {
     const li = freeLanes[i % Math.max(1, freeLanes.length)];
     if (li == null) continue;
@@ -461,10 +481,35 @@ function spawnPattern(chunk, c, zMid, dist, zone, rng, diff) {
     placeItem(chunk, c, lanes[li] + rnd(-1, 1), zLocal, rng);
   }
 }
-function placeObstacle(chunk, c, x, z, zone, rng, diff) {
-  const roll = rng();
+// Tremplin dans une voie, manifestation sur toute la largeur de la chaussee juste derriere :
+// on saute par-dessus, ou on passe par le trottoir.
+function rampSetPiece(chunk, c, zone, rng) {
+  const lanes = [-4.5, 0, 4.5];
+  const li = Math.floor(rng() * 3);
+  const zr = -CFG.CHUNK_LEN / 2 + 30 + rng() * 20;
+  addEnt(chunk, c, makeRamp(), lanes[li], zr);
+  lanes.forEach((x) => addEnt(chunk, c, makeProtest(), x + rnd(-0.3, 0.3), zr - 13 - rng() * 3));
+  // recompense en l'air, dans l'axe du tremplin
+  const it = makeItem(rng() < 0.6 ? "nitro" : "coffee");
+  it.airY = 1.7; it.hh = 3.6;
+  addEnt(chunk, c, it, lanes[li], zr - 9);
+}
+function addEnt(chunk, c, e, x, z) {
+  e.obj.position.set(x, e.baseY || 0, z);
+  e.chunk = chunk;
+  e.x = x; e.z = chunk.position.z + z;
+  c.add(e.obj);
+  chunk.userData.ents.push(e);
+  ents.push(e);
+  return e;
+}
+function placeObstacle(chunk, c, x, z, zone, rng, diff, noFull) {
+  let roll = rng();
   let factory;
-  if (zone === "downtown") {
+  // barrage : jamais de camion/bus (trop large) -> la breche reste franchissable
+  if (noFull) { const f = [makeProtest, makeConeCluster, makeCat, makeScooterKid, makeBallKid]; factory = f[Math.floor(roll * f.length)]; roll = 2; }
+  if (factory) { /* deja choisi */ }
+  else if (zone === "downtown") {
     if (roll < 0.3) factory = makeTruck;
     else if (roll < 0.5) factory = makeProtest;
     else if (roll < 0.62) factory = makeBus;

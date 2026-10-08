@@ -44,12 +44,18 @@ function showPickup(text) {
 }
 
 /* -------------------------------- PARTIE / RESET --------------------------- */
+// caracteristiques effectives = moto x pilote
+const topSpeed = () => BIKES[save.bike].maxSpeed * pmod("speed");
+const nitroTop = () => BIKES[save.bike].nitroSpeed * pmod("speed");
 function newState() {
   const def = BIKES[save.bike];
+  const hp = Math.round(def.health * pmod("health"));
   return {
-    raceTime: 0, timeLeft: CFG.TIME_LIMIT, integrity: def.health, integrityMax: def.health,
+    raceTime: 0, timeLeft: CFG.TIME_LIMIT, integrity: hp, integrityMax: hp,
     nitro: 100, distance: 0, hits: 0, pickups: 0,
-    endSeq: null, bannerShown: false, beeped: 0, finishing: false
+    endSeq: null, bannerShown: false, beeped: 0, finishing: false,
+    score: 0, combo: 1, comboT: 0, evT: CFG.EVENT_FIRST + rnd(0, 3), seenCrazy: false,
+    power: newPowerState()
   };
 }
 function resetPlayer() {
@@ -57,14 +63,16 @@ function resetPlayer() {
   player.x = 0; player.y = 0; player.z = 0; player.vy = 0; player.speed = 0;
   player.vx = 0; player.slip = 0; player.stun = 0; player.lean = 0;
   player.grounded = true; player.wheelSpin = 0; player.worldY = 0;
-  player.vxDir = 0;
+  player.vxDir = 0; player.dash = 0; player.dashDir = 0; player.airT = 0;
+  dad.callT = 0;
+  clearFreeEnts(); hideShield();
   player.boostFlame.material.opacity = 0;
   feel.wheelie = feel.crouch = feel.nitroK = feel.punch = feel.tint = feel.aberr = feel.hitStop = 0;
   if (skids) skids.clear();
   if (nitroTrail) nitroTrail.reset(new THREE.Vector3(0, -99, 0));
   player.bike.rotation.set(0, 0, 0);
   player.root.rotation.set(0, 0, 0);
-  dad.dist = CFG.DAD_START; dad.speed = def.maxSpeed * 0.34; dad.x = 0; dad.z = CFG.DAD_START;
+  dad.dist = CFG.DAD_START; dad.speed = topSpeed() * 0.34; dad.x = 0; dad.z = CFG.DAD_START;
   dad.root.visible = false;
   player.root.visible = true;
   player.root.position.set(0, 0, 0);
@@ -85,14 +93,15 @@ function rebuildAllChunks(demo) {
 }
 function startRace() {
   audio.init(); audio.resume(); audio.uiBig();
-  if (player.builtBike !== save.bike) buildPlayer();
+  if (player.builtBike !== save.bike || player.builtPilot !== save.pilot) buildPlayer();
   audio.setSiren(0, 0.05);
   closeModal();
   gameState = newState();
   resetPlayer();
+  newRunSeed();
   rebuildAllChunks(false);
   input.up = input.down = input.left = input.right = input.nitro = false;
-  input.jumpQueued = false;
+  input.jumpQueued = false; input.powerQueued = false;
   attract = false;
   camera.position.set(0, 15.5, 17.5);
   camera.rotation.z = 0;
@@ -115,12 +124,14 @@ function goToMenu() {
   audio.ui();
   audio.setSiren(0, 0.05);
   gameState = null;
+  clearFreeEnts(); hideShield();
   setApp(APP.MENU);
 }
 function quitToHome() {
   audio.ui();
   audio.setSiren(0, 0.05);
   gameState = null;
+  clearFreeEnts(); hideShield();
   enterHome();
 }
 // Ecran d'accueil : la scene 3D tourne en direct (moto au ralenti, camera qui orbite)
@@ -161,7 +172,7 @@ function onAppChange(prev, next) {
   }
   if (next === APP.HOME) attract = false;
 }
-const inHero = () => app === APP.HOME || (app === APP.MENU && modal === "modal-shop");
+const inHero = () => app === APP.HOME || (app === APP.MENU && (modal === "modal-shop" || modal === "modal-pilot"));
 // decale l'image pour laisser la place au texte (fraction de la largeur)
 function setViewShift(f) {
   if (Math.abs(f) < 0.001) { if (camera.view && camera.view.enabled) { camera.clearViewOffset(); } return; }
@@ -265,10 +276,13 @@ function updateRace(dt) {
   st.raceTime += dt;
   st.timeLeft -= dt;
 
+  updatePower(dt, st);
   updatePlayer(dt, st);
   updateDadEntity(dt, st);
   updateEnts(dt, st);
   collide(dt, st);
+  checkNearMiss(st);
+  updateEvents(dt, st);
   recycleChunks(player.z, false);
   exhaustFx(dt, st);
   updateHUD(dt, st);
@@ -278,9 +292,11 @@ function updateRace(dt) {
 }
 
 /* ------------------------------ PHYSIQUE JOUEUR ----------------------------- */
+function nitroOn(st) { return (powerActive("hyper") || (input.nitro && st.nitro > 0.5)) && !(player.stun > 0); }
 function updatePlayer(dt, st) {
   const def = BIKES[save.bike];
-  const nitroActive = input.nitro && st.nitro > 0.5 && !player.stun;
+  const vMax = topSpeed();
+  const nitroActive = nitroOn(st);
   const brakePriority = input.down;
 
   let throttle = 0;
@@ -288,36 +304,38 @@ function updatePlayer(dt, st) {
   else if (input.up) throttle = 1;
 
   const maxCostSpeed = st.integrity > st.integrityMax * 0.3 ? 1 : 0.86;
-  if (throttle > 0) player.speed += def.accel * dt * maxCostSpeed;
+  if (throttle > 0) player.speed += def.accel * pmod("accel") * dt * maxCostSpeed;
   else if (throttle < 0) player.speed -= CFG.BRAKE * dt;
   else player.speed -= CFG.DRAG * dt;
 
   if (nitroActive) {
     player.speed += CFG.NITRO_ACCEL * dt * maxCostSpeed;
-    st.nitro = Math.max(0, st.nitro - CFG.NITRO_DRAIN * dt);
+    if (!powerActive("hyper")) st.nitro = Math.max(0, st.nitro - CFG.NITRO_DRAIN * dt);
     if (Math.random() < 0.5) addShake(0.012);
   } else {
-    st.nitro = Math.min(100, st.nitro + CFG.NITRO_REGEN * dt);
+    st.nitro = Math.min(100, st.nitro + CFG.NITRO_REGEN * pmod("nitroRegen") * dt);
   }
   audio.setNitro(nitroActive);
   music.setLevel(nitroActive ? 2 : (player.speed > 8 ? 1 : 0));
-  audio.setEngine(player.speed / def.maxSpeed, throttle, dt);
+  audio.setEngine(player.speed / vMax, throttle, dt);
 
-  const top = nitroActive ? def.nitroSpeed : def.maxSpeed;
+  const top = nitroActive ? nitroTop() : vMax;
   player.speed = clamp(player.speed, 0, top);
   if (player.stun > 0) player.stun -= dt;
   if (player.slip > 0) player.slip -= dt;
 
   // Direction laterale
   const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const speedK = 0.5 + 0.5 * Math.min(1, player.speed / def.maxSpeed);
+  const speedK = 0.5 + 0.5 * Math.min(1, player.speed / vMax);
   const slipK = player.slip > 0 ? 0.32 : 1;
-  let targetVx = steer * 13.5 * speedK * slipK;
+  let targetVx = steer * 13.5 * pmod("steer") * speedK * slipK;
   if (player.stun > 0) targetVx *= 0.4;
-  player.vx = damp(player.vx, targetVx, player.grounded ? 10 : 3.2, dt);
+  // tenue de route : plus le pilote est maniable, plus il "accroche" vite sa trajectoire
+  player.vx = damp(player.vx, targetVx, (player.grounded ? 10 : 3.2) * Math.min(1.25, pmod("steer")), dt);
   if (player.slip > 0) player.vx += player.slipDir * 7.5 * Math.sin(player.slip * 9) * 0.6;
 
   let nx = player.x + player.vx * dt;
+  if (player.dash > 0) { player.dash -= dt; nx += player.dashDir * 26 * dt; }
   if (nx > CFG.WALL_X || nx < -CFG.WALL_X) {
     const side = Math.sign(nx);
     nx = side * CFG.WALL_X;
@@ -341,13 +359,14 @@ function updatePlayer(dt, st) {
 
   // Saut
   if (input.jumpQueued && player.grounded && player.stun <= 0) {
-    player.vy = CFG.JUMP_V;
-    player.grounded = false;
+    player.vy = CFG.JUMP_V * Math.sqrt(pmod("jump"));
+    player.grounded = false; player.airT = 0;
     audio.jump();
     smokePuff(player.x, 0.1, player.z + 0.6, { s0: 0.5, a0: 0.35 });
   }
   input.jumpQueued = false;
   if (!player.grounded) {
+    player.airT += dt;
     player.vy -= CFG.GRAVITY * dt;
     if (nitroActive) player.vy += CFG.GRAVITY * 0.3 * dt * (player.vy > 0 ? 1 : 0.35);
     player.y += player.vy * dt;
@@ -355,6 +374,12 @@ function updatePlayer(dt, st) {
       player.y = 0; player.vy = 0; player.grounded = true;
       audio.land();
       addShake(0.16);
+      if (player.airT > 0.55) {
+        // reception d'un vrai saut : points (et nitro pour le casse-cou)
+        const daredevil = curPilot().power.id === "superjump";
+        addScore(st, daredevil ? 60 : 30, player.airT > 1.1 ? "GROS SAUT !" : "RÉCEPTION !", true);
+        if (daredevil) st.nitro = Math.min(100, st.nitro + 18);
+      }
       smokePuff(player.x, 0.08, player.z + 0.4, { s0: 0.45, a0: 0.3 });
       sparksBurst(player.x, 0.1, player.z + 0.5, 2, { power: 2 });
     }
@@ -382,8 +407,7 @@ function updatePlayer(dt, st) {
   }
 }
 function animateBike(dt, nitroActive, st) {
-  const def = BIKES[save.bike];
-  const sr = clamp(player.speed / def.maxSpeed, 0, 1.4);
+  const sr = clamp(player.speed / topSpeed(), 0, 1.4);
   player.wheelSpin -= (player.speed / 0.33 / 1.65) * dt;
   player.wheels.forEach((w) => { w.rotation.x = player.wheelSpin; });
   const steer = player.vxDir || 0;
@@ -403,19 +427,25 @@ function animateBike(dt, nitroActive, st) {
   }
 }
 function exhaustFx(dt, st) {
-  const nitroActive = input.nitro && st.nitro > 0.5 && !player.stun;
+  const nitroActive = nitroOn(st);
   bikeFx(dt, st, nitroActive);
 }
 
 /* -------------------------------- POURSUITE --------------------------------- */
 function updateDadEntity(dt, st) {
-  const def = BIKES[save.bike];
-  // Vitesse du poursuivant relative a la vitesse du joueur, plafonnee sous la vitesse de pointe :
-  // a fond, la moto prend lentement de l'avance ; tout ralentissement ou choc laisse papa recoller.
-  const target = clamp(player.speed * 0.88 + 3.5, CFG.DAD_MIN, def.maxSpeed * 0.965);
-  dad.speed = damp(dad.speed, target, 2.4, dt);
+  // Papa ne lache jamais : son rythme de croisiere depasse legerement TA vitesse de pointe (1,02 -> 1,06
+  // au fil de la course). A fond sans nitro, il grignote donc toujours du terrain : il faut utiliser la
+  // nitro, les tremplins et les pouvoirs pour creuser l'ecart. S'il est distance, il coupe par les petites rues.
+  const prog = clamp(st.distance / CFG.TOTAL_DIST, 0, 1);
+  let pace = topSpeed() * lerp(CFG.DAD_PACE, CFG.DAD_PACE_END, prog);
+  if (dad.dist > 40) pace += 3.5;
+  // lui aussi est gene par la circulation quand tu ralentis, mais beaucoup moins que toi
+  let target = clamp(Math.min(pace, player.speed * 0.8 + pace * 0.2 + 4), CFG.DAD_MIN, pace);
+  if (st.raceTime < 4) target = Math.min(target, player.speed * 0.92);   // depart : il enfile son peignoir
+  if (dad.callT > 0) { dad.callT -= dt; target = 0; }   // il decroche son telephone (pouvoir de Clothilde)
+  dad.speed = damp(dad.speed, target, dad.callT > 0 ? 4 : 2.4, dt);
   dad.dist += (player.speed - dad.speed) * dt;     // distance derriere la moto (m)
-  dad.dist = clamp(dad.dist, 0, 55);
+  dad.dist = clamp(dad.dist, 0, CFG.DAD_MAX_DIST);
   dad.x = damp(dad.x, player.x + Math.sin(clockT * 1.3) * 0.8, 2.5, dt);
   dad.z = player.z + dad.dist;
   dad.root.visible = dad.dist < 26 && app === APP.RACE;
@@ -473,12 +503,14 @@ function entWorld(e) {
 let fatherHot = false;
 function collide(dt, st) {
   const px = player.x, pz = player.z, py = player.y;
+  const hb = pmod("hitbox");
+  const ghost = powerActive("dash");               // ESQUIVE : intouchable
   for (let i = 0; i < ents.length; i++) {
     const e = ents[i];
     if (e.dead) continue;
     if (e.type === "item") {
       const w = entWorld(e);
-      if (Math.abs(px - w.x) < e.hw + 0.7 && Math.abs(pz - w.z) < e.hl + 1.6 && py < e.hh + 0.4) {
+      if (Math.abs(px - w.x) < e.hw + 0.7 && Math.abs(pz - w.z) < e.hl + 1.6 && py < e.hh + 0.4 && py + 1.2 > (e.airY || 0)) {
         collectItem(e, st);
       }
       continue;
@@ -486,17 +518,19 @@ function collide(dt, st) {
     const w = entWorld(e);
     let wy = e.baseY || 0;
     if (e.type === "phone" && !e.landed) wy = e.y;
-    const hw = e.hw + 0.55, hl = e.hl + 1.35;
+    const hw = e.hw + 0.55 * hb, hl = e.hl + 1.35;
     const dx = px - w.x, dz = pz - w.z;
     if (Math.abs(dx) > hw || Math.abs(dz) > hl) continue;
     if (py + wy > (e.hh + (wy > 0 ? 0.2 : 0)) && e.level === "LOW") continue;
     if (e.level === "GROUND" && py > 0.28) continue;
+    if (ghost && e.type !== "ramp") continue;
     if (e.hitCd > 0) {
       e.hitCd -= dt;
-      // seuls les vehicules restent des corps solides apres l'impact (jamais une flaque, un chat, une foule...)
-      if (e.level === "FULL") resolveSolid(e, dx, dz, hw, hl, st, true);
+      // seuls les vehicules a l'arret restent des corps solides apres l'impact (jamais une flaque, un chat, une foule...)
+      if (e.level === "FULL" && !e.moving) resolveSolid(e, dx, dz, hw, hl, st, true);
       continue;
     }
+    if (e.level === "LOW" && powerActive("ram") && e.type !== "girlfriend") { ramStrike(e, st); continue; }
     hitEntity(e, st, dx, dz, hw, hl);
   }
   fatherHot = dad.dist < 22;
@@ -512,10 +546,45 @@ function resolveSolid(e, dx, dz, hw, hl, st, gentil) {
     if (Math.sign(dz) > 0) player.speed *= 0.4;
   }
 }
+// BELIER (Arthur) : l'obstacle bas est renverse, sans ralentir ni abimer la moto
+function ramStrike(e, st) {
+  e.hitCd = 1; e.wasHit = true; e.dead = true; e.obj.visible = false;
+  const w = entWorld(e);
+  debrisBurst(w.x, 1, w.z, 12, [[1, 0.6, 0.1], [0.95, 0.95, 0.95], [0.3, 0.5, 0.9]]);
+  sparksBurst(w.x, 0.8, w.z, 8, { power: 6 });
+  addShake(0.25); impactFeel("light");
+  audio.crash(false);
+  addScore(st, 40, "STRIKE !", true);
+}
+// part du ralentissement reellement subie selon le pilote (Arthur encaisse mieux)
+function slowBy(k) { player.speed *= 1 - (1 - k) * pmod("hitSlow"); }
 function hitEntity(e, st, dx, dz, hw, hl) {
   const type = e.type;
   let dmg = e.damage || 0;
   e.hitCd = 0.7;
+  if (type !== "puddle" && type !== "ramp") e.wasHit = true;
+  if (dmg > 0) breakCombo(st);
+  if (e.level === "FULL" && powerActive("ram")) dmg = Math.round(dmg * 0.5);
+  if (type === "ramp") { hitRamp(e, st); return; }
+  if (type === "crazycar" || type === "oncoming") {
+    const crazy = type === "crazycar";
+    e.hitCd = 2; e.hitPlayer = true;
+    slowBy(crazy ? 0.3 : 0.1);
+    const side = Math.sign(dx || (player.x > 0 ? 1 : -1));
+    player.x = clamp(player.x + side * 1.4, -CFG.WALL_X, CFG.WALL_X);
+    player.vx = side * 9;
+    player.stun = 0.9;
+    if (!crazy) player.z += 2;
+    addShake(1.1);
+    flash("hit", 240);
+    sparksBurst(player.x, player.worldY + 0.7, player.z, 14, { power: 7 });
+    debrisBurst(player.x, player.worldY + 0.8, player.z, 12, [[0.9, 0.9, 0.95], [1, 0.3, 0.2]]);
+    audio.crash(true);
+    impactFeel("heavy", player.x, player.worldY + 0.9, player.z - 0.4);
+    showAlert(crazy ? "RENVERSÉ PAR LA VOITURE FOLLE !" : "CHOC À CONTRESENS !");
+    applyDamage(dmg, st);
+    return;
+  }
   if (type === "truck" || type === "bus" || type === "parked") {
     const frontal = Math.abs(dx) < e.hw * 0.85;
     e.hitCd = 0.9;
@@ -531,7 +600,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
       impactFeel("heavy", player.x, player.worldY + 0.9, player.z - 0.4);
       showAlert(type === "truck" ? "CRASH DANS LE CAMION SSB !" : (type === "bus" ? "BUS SCOLAIRE PERCUTÉ !" : "VOITURE GARÉE !"));
     } else {
-      player.speed *= 0.35;
+      slowBy(0.35);
       addShake(0.5);
       audio.crash(false);
       sparksBurst(player.x + Math.sign(dx) * 0.5, player.worldY + 0.5, player.z, 8, { power: 5 });
@@ -540,7 +609,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     }
     applyDamage(dmg, st);
   } else if (type === "protest") {
-    player.speed *= 0.15;
+    slowBy(0.15);
     player.x += Math.sign(dx || 1) * 0.5;
     addShake(0.55);
     audio.crash(false);
@@ -550,7 +619,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     showAlert("BLOQUÉ PAR LES MANIFESTANTS !");
     applyDamage(dmg, st);
   } else if (type === "cat") {
-    player.speed *= 0.82;
+    slowBy(0.82);
     player.slip = 1.1;
     player.slipDir = rnd(-1, 1);
     addShake(0.3);
@@ -561,7 +630,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
   } else if (type === "kid") {
-    player.speed *= 0.6;
+    slowBy(0.6);
     addShake(0.35);
     audio.crash(false);
     debrisBurst(player.x, player.worldY + 0.6, player.z, 6, [[0.2, 0.5, 0.9]]);
@@ -570,7 +639,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
   } else if (type === "ballkid") {
-    player.speed *= 0.8;
+    slowBy(0.8);
     addShake(0.2);
     audio.beep(320, 0.18, "triangle", 0.12);
     impactFeel("light");
@@ -578,7 +647,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
   } else if (type === "cones") {
-    player.speed *= 0.85;
+    slowBy(0.85);
     addShake(0.22);
     audio.noiseBurst(0.1, "bandpass", 900, 0.16);
     sparksBurst(worldX(e), 0.4, worldZ(e), 6, { power: 4 });
@@ -586,7 +655,17 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     showAlert("CÔNES DE CHANTIER !", "gold");
     applyDamage(dmg, st);
     e.dead = true; e.obj.visible = false;
+  } else if (type === "girlfriend" && pmod("friend") === true) {
+    // Clothilde : sa copine lui tape dans la main et lui donne un coup de boost
+    st.nitro = Math.min(100, st.nitro + 25);
+    player.speed = Math.min(nitroTop(), player.speed + 6);
+    audio.kiss();
+    heartsBurst(worldX(e), 1.8, worldZ(e), 8);
+    showAlert("CHECK DE LA COPINE ! +25 NITRO", "cyan");
+    addScore(st, 50, null, true);
+    e.wasHit = false; e.hitCd = 99;
   } else if (type === "girlfriend") {
+    breakCombo(st);
     player.speed *= 0.45;
     player.stun = 0.5;
     addShake(0.3);
@@ -597,7 +676,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     applyDamage(4, st);
     e.hitCd = 1.5;
   } else if (type === "phone") {
-    player.speed *= 0.7;
+    slowBy(0.7);
     player.stun = 0.7;
     addShake(0.5);
     flash("hit", 200);
@@ -610,7 +689,7 @@ function hitEntity(e, st, dx, dz, hw, hl) {
     e.dead = true;
   } else if (type === "puddle") {
     if (player.slip <= 0) {
-      player.slip = 0.9;
+      player.slip = 0.9 / Math.min(1, pmod("steer"));     // Tom tient mal la route : il glisse plus longtemps
       player.slipDir = rnd(-1, 1);
       audio.noiseBurst(0.35, "highpass", 1800, 0.2);
       fxSmoke.emit(player.x, 0.1, player.z, 0, 0.4, 0.6, { ttl: 0.7, s0: 1.1, s1: 2.4, r: 0.75, g: 0.85, b: 0.95, a0: 0.4, drag: 0.92 });
@@ -625,14 +704,16 @@ function collectItem(e, st) {
   e.dead = true;
   e.obj.visible = false;
   st.pickups++;
+  st.score += 25;
   audio.pickup();
   if (e.itemKind === "nitro") {
     st.nitro = Math.min(100, st.nitro + 35);
     showPickup("+35 NITRO");
     fxSpark.emit(player.x, player.worldY + 1, player.z, 0, 2, 0, { ttl: 0.5, s0: 0.5, s1: 0.1, r: 0.4, g: 0.85, b: 1, a0: 0.9 });
   } else if (e.itemKind === "coffee") {
-    st.timeLeft += 6;
-    showPickup("+6 SECONDES");
+    const sec = pmod("coffee");
+    st.timeLeft += sec;
+    showPickup("+" + sec + " SECONDES");
     audio.beep(700, 0.12, "square", 0.12, 1200);
   } else {
     st.integrity = Math.min(st.integrityMax, st.integrity + 14);
@@ -652,8 +733,9 @@ function applyDamage(dmg, st) {
 
 /* ---------------------------------- HUD ------------------------------------ */
 function updateHUD(dt, st) {
-  const def = BIKES[save.bike];
   const kmh = Math.round(player.speed * 2.62);
+  setText($("hud-score"), String(st.score + Math.floor(st.distance)));
+  setText($("hud-combo"), st.combo > 1 ? "COMBO x" + st.combo : "");
   setText($("hud-speed"), String(kmh));
   setText($("hud-clock"), fmtTime(st.timeLeft));
   const crit = st.timeLeft < 12;
@@ -663,13 +745,12 @@ function updateHUD(dt, st) {
   setText($("hud-dist"), Math.max(0, Math.round(CFG.TOTAL_DIST - st.distance)) + " m");
   setText($("hud-health-num"), Math.round(clamp(st.integrity / st.integrityMax, 0, 1) * 100) + "%");
   // arcs : vitesse (jusqu'a la vitesse nitro) et reserve de nitro
-  const sr = clamp(player.speed / def.nitroSpeed, 0, 1);
+  const sr = clamp(player.speed / nitroTop(), 0, 1);
   setStyle($("hud-speed-arc"), "strokeDashoffset", String(100 - sr * 100));
   setStyle($("hud-nitro-arc"), "strokeDashoffset", String(100 - clamp(st.nitro, 0, 100)));
   setText($("hud-nitro-pct"), String(Math.round(clamp(st.nitro, 0, 100))));
   const hs = $("hud-nitro-arc").parentNode.parentNode;
-  const nitroOn = input.nitro && st.nitro > 0.5;
-  hs.classList.toggle("nitro-on", nitroOn);
+  hs.classList.toggle("nitro-on", nitroOn(st));
   hs.classList.toggle("nitro-low", st.nitro < 15);
   const hp = clamp(st.integrity / st.integrityMax, 0, 1);
   const hb = $("hud-health");
@@ -680,7 +761,7 @@ function updateHUD(dt, st) {
   setStyle($("hud-progress"), "width", (pr * 100) + "%");
   setStyle($("mk-bike"), "left", (pr * 100) + "%");
   setStyle($("mk-dad"), "left", Math.max(0, pr * 100 - (clamp(dad.dist, 0, 55) / 55) * 9) + "%");
-  setText($("hud-mode"), fatherHot ? "PAPA EST LÀ !" : "CAP SUR LE COLLÈGE");
+  setText($("hud-mode"), dad.callT > 0 ? "PAPA AU TÉLÉPHONE" : (fatherHot ? "PAPA EST LÀ !" : "CAP SUR LE COLLÈGE"));
   $("hud-mode").classList.toggle("hot", fatherHot);
   const dang = (!st.endSeq && (dad.dist < 13 || hp < 0.28));
   if ($("dmgborder").className !== (dang ? "on" : "")) $("dmgborder").className = dang ? "on" : "";
@@ -735,6 +816,11 @@ function updateEndSeq(dt) {
     showEndScreen(sq.win, sq.reason);
   }
 }
+function finalScore(st, win) {
+  let sc = st.score + Math.floor(clamp(st.distance, 0, CFG.TOTAL_DIST));
+  if (win) sc += Math.round(st.timeLeft * 20 + clamp(st.integrity / st.integrityMax, 0, 1) * 200 + 500);
+  return sc;
+}
 function showEndScreen(win, reason) {
   const st = gameState;
   save.runs++;
@@ -743,25 +829,34 @@ function showEndScreen(win, reason) {
     if (save.best == null || st.raceTime < save.best) { save.best = st.raceTime; isRecord = true; }
     if (st.integrity > save.bestHealth) save.bestHealth = st.integrity;
   }
+  const sc = finalScore(st, win);
+  const scoreRecord = sc > (save.bestScore || 0);
+  if (scoreRecord) save.bestScore = sc;
   persistSave();
+  const pn = curPilot().name.charAt(0) + curPilot().name.slice(1).toLowerCase();
   $("end-wrap").className = "end-wrap " + (win ? "win" : "lose");
   $("end-kicker").textContent = win ? "COURSE TERMINÉE" : "COURSE TERMINÉE";
   $("end-title").textContent = win ? "A L'HEURE !" : (reason === "time" ? "TROP TARD !" : (reason === "moto" ? "MOTO HS !" : "RATTRAPE !"));
   const descs = {
-    win: "Tu franchis le portail du Collège Molière juste avant la sonnerie. Le surveillant hoche la tête. Respect, Sam.",
+    win: "Tu franchis le portail du Collège Molière juste avant la sonnerie. Le surveillant hoche la tête. Respect, " + pn + ".",
     time: "La sonnerie a retenti. Tu es encore à trois rues du collège : deux heures de colle samedi, et papa est furax.",
     moto: "Ta moto a rendu l'âme dans un nuage de fumée. Tu termines à pied. Autant dire en retard.",
     dad: "Ton père t'a rattrapé en scooter. Retour à la maison, et cette fois tu prends le bus."
   };
   $("end-desc").textContent = descs[reason] || descs.time;
-  $("end-new-rec").classList.toggle("hidden", !isRecord);
+  $("end-new-rec").classList.toggle("hidden", !(isRecord || scoreRecord));
+  $("end-new-rec").textContent = isRecord ? "NOUVEAU RECORD" : "NOUVEAU MEILLEUR SCORE";
+  $("end-stat-5").textContent = String(sc);
+  $("end-stat-6").textContent = save.bestScore ? String(save.bestScore) : "--";
   $("end-stat-1").textContent = win ? fmtTime(st.timeLeft) : fmtTime(Math.max(0, st.timeLeft));
-  $("end-stat-2").textContent = Math.round(st.integrity) + "%";
+  $("end-stat-2").textContent = Math.round(clamp(st.integrity / st.integrityMax, 0, 1) * 100) + "%";
   $("end-stat-3").textContent = Math.round(clamp(st.distance, 0, CFG.TOTAL_DIST)) + " m";
   $("end-stat-4").textContent = save.best != null ? fmtTime(save.best) : "--";
   audio.setSiren(0, 0.05);
   $("dmgborder").className = "";
   $("speedlines").className = "";
+  $("hud-threat").className = "hud-threat";
+  hideShield();
   setApp(win ? APP.WIN : APP.LOSE);
 }
 
@@ -891,7 +986,16 @@ function statRow(label, v) {
 function setupUI() {
   $("tag-time").textContent = CFG.TIME_LIMIT + " secondes";
   $("btn-play").addEventListener("click", beginJourney);
-  $("btn-new").addEventListener("click", startRace);
+  $("btn-new").addEventListener("click", openPilotSelect);
+  $("btn-pilot-go").addEventListener("click", startRace);
+  $("btn-pilot-close").addEventListener("click", closeModal);
+  const EN = ["doux", "normal", "coupe"], ENN = { doux: "DOUX", normal: "NORMAL", coupe: "COUPÉ" };
+  const refreshE = () => { $("btn-engine").innerHTML = "MOTEUR : <b>" + (ENN[save.engine] || "DOUX") + "</b>"; };
+  $("btn-engine").addEventListener("click", () => {
+    const i = (EN.indexOf(save.engine) + 1) % EN.length;
+    audio.setEngineVolume(EN[i]); audio.ui(); refreshE();
+  });
+  refreshE();
   $("btn-load").addEventListener("click", () => { refreshMenuInfo(); openModal("modal-load"); });
   $("btn-shop").addEventListener("click", () => { renderShop(); openModal("modal-shop"); });
   $("btn-quit").addEventListener("click", quitToHome);
@@ -913,12 +1017,15 @@ function setupUI() {
   $("btn-end-menu").addEventListener("click", goToMenu);
   $("btn-mute").addEventListener("click", () => { audio.setMuted(!save.muted); refreshMuteBtn(); });
   $("screen-home").addEventListener("click", (e) => { if (e.target.id === "screen-home" || e.target.id === "home-shade") beginJourney(); });
-  // Visuel d'accueil : image perso si elle existe, sinon la scene 3D en direct
-  const bg = $("home-bg");
-  const probe = new Image();
-  probe.onload = () => { bg.style.backgroundImage = "url('" + CFG.HOME_IMAGE + "')"; bg.classList.add("has-image"); $("screen-home").classList.add("has-image"); };
-  probe.onerror = () => { bg.style.display = "none"; };
-  probe.src = CFG.HOME_IMAGE;
+  // Affiche du jeu sur l'accueil : le cadre prend les proportions de l'image des qu'elle existe
+  $("home-bg").style.display = "none";
+  const poster = $("home-poster"), pimg = $("home-poster-img");
+  pimg.onload = () => {
+    poster.classList.add("has-image");
+    if (pimg.naturalWidth && pimg.naturalHeight) poster.style.aspectRatio = pimg.naturalWidth + " / " + pimg.naturalHeight;
+  };
+  pimg.onerror = () => poster.classList.remove("has-image");
+  pimg.src = CFG.HOME_IMAGE;
 }
 
 /* --------------------------------- INIT ------------------------------------ */
