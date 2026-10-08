@@ -6,8 +6,67 @@
 
 const feel = {
   hitStop: 0, punch: 0, aberr: 0, tint: 0, nitroK: 0, wheelie: 0, crouch: 0, skidT: 0, lookT: 0,
-  dadBubbleT: 0, lastImpact: -9, flashBoost: 0, screenX: 0.5, screenY: 0.7, shakeRoll: 0
+  dadBubbleT: 0, lastImpact: -9, flashBoost: 0, screenX: 0.5, screenY: 0.7, shakeRoll: 0, slowmo: 0, slowCd: 0
 };
+
+/* -------------------------------- Ralenti --------------------------------- */
+// petit ralenti cinematographique sur les exploits (frolement extreme, voiture folle evitee, figure)
+function slowMo(dur) {
+  if (clockT < feel.slowCd || app !== APP.RACE) return;
+  feel.slowmo = Math.max(feel.slowmo, dur || 0.45);
+  feel.slowCd = clockT + 2.5;
+  feel.punch = Math.max(feel.punch, 0.6);
+  audio.noiseBurst(0.5, "lowpass", 500, 0.12, 0.6);
+}
+
+/* -------------------------------- Figures --------------------------------- */
+function landTrick(st) {
+  const r = player.trickRot || 0;
+  player.trickRot = 0;
+  if (Math.abs(r) < 0.5) return;
+  const turns = Math.round(Math.abs(r) / (Math.PI * 2));
+  const off = Math.abs(Math.abs(r) - turns * Math.PI * 2);
+  if (turns >= 1 && off < 0.95) {
+    // reception reussie (tolerance genereuse : ~55 degres)
+    addScore(st, 120 * turns, turns > 1 ? turns * 360 + "° !!" : "360° !", true);
+    st.nitro = Math.min(100, st.nitro + 20 * turns);
+    sparksBurst(player.x, 0.4, player.z, 10, { power: 4 });
+    slowMo(0.4);
+  } else {
+    // reception de travers
+    breakCombo(st);
+    slowBy(0.5);
+    player.stun = 0.5;
+    addShake(0.4);
+    showAlert("RÉCEPTION DE TRAVERS !", "gold", 900);
+    applyDamage(4, st);
+  }
+}
+
+/* --------------------------------- Voix ----------------------------------- */
+// Voix enregistrees (facultatives) : deposer des .mp3 dans assets/voix/ (voir A_LIRE.txt).
+// Sans fichier, le jeu reste muet sur ce point : seules les bulles s'affichent.
+const VOICE = { clips: {}, loaded: false, last: 0 };
+const VOICE_FILES = ["papa-oscar", "papa-arthur", "papa-tom", "papa-yanis", "papa-clothilde", "papa-1", "papa-2", "papa-3", "papa-4", "papa-5", "copine", "principal", "victoire"];
+function loadVoices() {
+  if (VOICE.loaded) return;
+  VOICE.loaded = true;
+  VOICE_FILES.forEach((n) => {
+    const a = new Audio();
+    a.preload = "auto";
+    a.addEventListener("canplaythrough", () => { VOICE.clips[n] = a; }, { once: true });
+    a.src = "assets/voix/" + n + ".mp3";
+  });
+}
+function playVoice(names) {
+  if (save.muted) return false;
+  const ok = names.filter((n) => VOICE.clips[n]);
+  if (!ok.length) return false;
+  const a = VOICE.clips[pick(ok)];
+  try { a.currentTime = 0; a.volume = 0.95; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  return true;
+}
+const DAD_LINES = ["REVIENS ICI !", "TON CARTABLE !", "T'AS OUBLIÉ TON GOÛTER !", "JE VAIS LE DIRE À MAMAN !", "PRIVÉ DE CONSOLE !", "ATTENDS-MOI !"];
 const _v = new THREE.Vector3();
 
 // niveau : "heavy" (camion), "medium" (manifestants, telephone), "light" (chat, cones...)
@@ -32,8 +91,8 @@ function updateFeel(dt, rawDt) {
 function applyPostFx(rawDt) {
   const fx = RENDER.fx, st = gameState;
   const playing = app === APP.RACE || app === APP.COUNTDOWN || app === APP.PAUSE;
-  const nitroOn = !!(playing && st && input.nitro && st.nitro > 0.5 && !player.stun);
-  feel.nitroK = damp(feel.nitroK, nitroOn && app === APP.RACE ? 1 : 0, nitroOn ? 7 : 4, rawDt);
+  const nOn = !!(playing && st && nitroOn(st));
+  feel.nitroK = damp(feel.nitroK, nOn && app === APP.RACE ? 1 : 0, nOn ? 7 : 4, rawDt);
   _v.set(player.x, (player.worldY || 0) + 0.9, player.z).project(camera);
   feel.screenX = damp(feel.screenX, _v.x * 0.5 + 0.5, 10, rawDt);
   feel.screenY = damp(feel.screenY, _v.y * 0.5 + 0.5, 10, rawDt);
@@ -179,7 +238,15 @@ function ensureDadBubble() {
     dad.bubble.scale.set(3.4, 1.28, 1); dad.bubble.renderOrder = 30; dad.bubble.visible = false;
     worldGroup.add(dad.bubble);
   }
-  const tex = bubbleTexture(dad.callT > 0 ? "ALLÔ ?…" : shoutName());
+  // nouvelle replique toutes les ~2,5 s (prenom du pilote une fois sur deux)
+  if (clockT > feel.dadBubbleT) {
+    feel.dadBubbleT = clockT + 2.6;
+    dad.line = Math.random() < 0.5 ? shoutName() : pick(DAD_LINES);
+    if (dad.root && dad.root.visible && dad.dist < 20 && app === APP.RACE && clockT - VOICE.last > 3.5) {
+      if (playVoice(Math.random() < 0.5 ? ["papa-" + curPilot().id] : ["papa-1", "papa-2", "papa-3", "papa-4", "papa-5"])) VOICE.last = clockT;
+    }
+  }
+  const tex = bubbleTexture(dad.callT > 0 ? "ALLÔ ?…" : (dad.line || shoutName()));
   if (dad.bubble.material.map !== tex) { dad.bubble.material.map = tex; dad.bubble.material.needsUpdate = true; }
 }
 function dadFx(dt) {

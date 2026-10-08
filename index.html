@@ -42,7 +42,7 @@
       </div>
       <div class="clock-sub"><span id="hud-dist">2000 m</span><span id="hud-mode">CAP SUR LE COLLÈGE</span></div>
     </div>
-    <div class="hud-btns hud-spacer"><div class="hud-score" id="hud-score-box"><span>SCORE</span><b id="hud-score">0</b><i id="hud-combo"></i></div></div>
+    <div class="hud-btns hud-spacer"><div class="hud-score" id="hud-score-box"><span>SCORE</span><b id="hud-score">0</b><i id="hud-combo"></i><em id="hud-ghost"></em></div></div>
   </div>
 
   <!-- bas gauche : vitesse + nitro -->
@@ -127,8 +127,8 @@
       <button id="btn-quit" class="btn btn-danger btn-block" type="button">QUITTER</button>
     </div>
     <div class="menu-foot">
-      <span>Record : <b id="menu-best">--</b></span>
-      <span>Meilleur score : <b id="menu-score">--</b></span>
+      <span>Record famille : <b id="menu-best">--</b></span>
+      <span>Étoiles : <b id="menu-score">0 ★</b></span>
     </div>
     <div class="menu-foot">
       <span>Pilote : <b id="menu-pilot">OSCAR</b></span>
@@ -137,9 +137,10 @@
     <div class="menu-foot menu-foot-2">
       <button id="btn-quality" class="link-btn" type="button">GRAPHISMES : <b>AUTO</b></button>
       <button id="btn-engine" class="link-btn" type="button">MOTEUR : <b>DOUX</b></button>
+      <button id="btn-clipopt" class="link-btn" type="button">CLIP VIDÉO : <b>NON</b></button>
     </div>
     <div class="menu-foot menu-foot-2">
-      <span class="hint-keys">Flèches / ZQSD · Espace saut · Maj nitro · E pouvoir</span>
+      <span class="hint-keys">Flèches / ZQSD · Espace saut · Maj nitro · E pouvoir · en l'air : Espace + ◀ ▶ = figure</span>
     </div>
   </div>
 </div>
@@ -147,14 +148,17 @@
 <!-- ============================ CHOIX DU PILOTE ============================ -->
 <div id="modal-pilot" class="modal hidden">
   <div class="modal-box pilot-box">
-    <div class="pilot-level" id="pilot-level">NIVEAU 1 · COLLÈGE MOLIÈRE</div>
+    <div class="pilot-modes" id="pilot-modes"></div>
     <h2 style="color:var(--gold)">CHOISIS TON PILOTE</h2>
-    <p class="sub">Chaque pilote a son style de conduite et son pouvoir spécial (touche <b>E</b>).</p>
+    <p class="sub">Tous les pilotes vont aussi vite : chacun gagne du temps à sa façon. Pouvoir spécial : touche <b>E</b>.</p>
     <div class="pilot-grid" id="pilot-grid"></div>
     <div class="pilot-detail" id="pilot-detail"></div>
-    <div class="modal-actions">
-      <button id="btn-pilot-go" class="btn" type="button">C'EST PARTI !</button>
-      <button id="btn-pilot-close" class="btn btn-ghost" type="button">RETOUR</button>
+    <div class="pilot-foot">
+      <div class="pilot-aid" title="Papa un peu plus lent, moins de dégâts, trajectoire corrigée, quelques secondes en plus. Les records avec aide sont comptés à part."><span>AIDE POUR <b id="pilot-aid-name">OSCAR</b> :</span><div id="pilot-aid"></div></div>
+      <div class="modal-actions">
+        <button id="btn-pilot-go" class="btn" type="button">C'EST PARTI !</button>
+        <button id="btn-pilot-close" class="btn btn-ghost" type="button">RETOUR</button>
+      </div>
     </div>
   </div>
 </div>
@@ -163,9 +167,9 @@
 <div id="modal-shop" class="modal hidden">
   <div class="modal-box">
     <h2 style="color:var(--gold)">BOUTIQUE FURAX</h2>
-    <p class="sub">Choisis ta machine. Chaque bécane a son caractère.</p>
+    <p class="sub">Choisis ta machine. Toutes les motos vont aussi vite : seul le style change.</p>
     <div class="shop-grid" id="shop-grid"></div>
-    <p class="notice">Deux prototypes sont en préparation chez le mécanicien. Reviens plus tard.</p>
+    <p class="notice">Chaque pilote a sa moto. Les étoiles gagnées dans les défis débloquent de nouveaux modèles ; d'autres arrivent bientôt chez le mécanicien.</p>
     <div class="modal-actions">
       <button id="btn-shop-close" class="btn btn-ghost" type="button">RETOUR</button>
     </div>
@@ -199,6 +203,17 @@
   </div>
 </div>
 
+<!-- ============================ MODE PHOTO ============================ -->
+<div id="photo-ui" class="photo-ui hidden">
+  <div class="photo-top">MODE PHOTO · glisser = tourner · molette / + − = zoom · flèches = déplacer</div>
+  <div class="photo-bar">
+    <div class="photo-filters" id="photo-filters"></div>
+    <label class="photo-dof">Flou d'arrière-plan <input type="range" id="photo-dof" min="0" max="100" value="40"></label>
+    <button class="btn btn-cyan" id="btn-photo-shot" type="button">📸 PRENDRE LA PHOTO</button>
+    <button class="btn btn-ghost" id="btn-photo-exit" type="button">RETOUR</button>
+  </div>
+</div>
+
 <!-- ============================ PAUSE ============================ -->
 <div id="screen-pause" class="screen dim hidden">
   <div class="pause-wrap">
@@ -206,6 +221,7 @@
     <p class="pause-note" id="pause-note">La rue attend. Le temps est figé.</p>
     <button class="btn btn-block" id="btn-resume" type="button">REPRENDRE</button>
     <button class="btn btn-ghost btn-block" id="btn-restart" type="button">RECOMMENCER</button>
+    <button class="btn btn-cyan btn-block" id="btn-photo" type="button">MODE PHOTO</button>
     <button class="btn btn-danger btn-block" id="btn-pause-menu" type="button">MENU PRINCIPAL</button>
   </div>
 </div>
@@ -218,15 +234,18 @@
     <p class="end-desc" id="end-desc"></p>
     <div id="end-new-rec" class="end-new hidden">NOUVEAU RECORD</div>
     <div class="end-stats">
-      <div class="end-stat"><b id="end-stat-1">--</b><span>temps restant</span></div>
+      <div class="end-stat time"><b id="end-stat-1">--</b><span>temps (chrono réel)</span></div>
       <div class="end-stat"><b id="end-stat-2">--</b><span>intégrité moto</span></div>
       <div class="end-stat"><b id="end-stat-3">--</b><span>distance parcourue</span></div>
-      <div class="end-stat rec"><b id="end-stat-4">--</b><span>meilleur temps</span></div>
+      <div class="end-stat rec"><b id="end-stat-4">--</b><span id="end-lbl-4">record du pilote</span></div>
       <div class="end-stat score"><b id="end-stat-5">0</b><span>score</span></div>
-      <div class="end-stat rec"><b id="end-stat-6">--</b><span>meilleur score</span></div>
+      <div class="end-stat rec"><b id="end-stat-6">--</b><span>record de la famille</span></div>
     </div>
+    <div class="end-stars" id="end-stars"></div>
+    <div class="end-unlocks" id="end-unlocks"></div>
     <div class="end-actions">
       <button id="btn-replay" class="btn" type="button">REJOUER</button>
+      <button id="btn-clip" class="btn btn-cyan hidden" type="button">TÉLÉCHARGER LE CLIP</button>
       <button id="btn-end-menu" class="btn btn-ghost" type="button">MENU PRINCIPAL</button>
     </div>
   </div>
@@ -251,8 +270,11 @@
 <script src="js/31-school.js"></script>
 <script src="js/32-fx.js"></script>
 <script src="js/33-events.js"></script>
+<script src="js/34-levels.js"></script>
 <script src="js/41-gamefeel.js"></script>
 <script src="js/42-pilots.js"></script>
+<script src="js/43-progress.js"></script>
+<script src="js/44-media.js"></script>
 <script src="js/40-gameplay.js"></script>
 <script src="js/99-hooks.js"></script>
 </body>

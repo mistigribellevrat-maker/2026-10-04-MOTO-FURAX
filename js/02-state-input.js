@@ -44,15 +44,16 @@ function closeModal() {
   $(modal).classList.add("hidden"); modal = null; audio.ui(); document.body.classList.remove("modal-open");
 }
 function refreshMenuInfo() {
-  $("menu-best").textContent = save.best != null ? fmtTime(save.best) : "--";
+  const fam = familyRecord(modeKey());
+  $("menu-best").textContent = fmtFamily(fam);
   $("menu-bike").textContent = BIKES[save.bike].name;
-  $("menu-pilot").textContent = curPilot().name;
-  $("menu-score").textContent = save.bestScore ? String(save.bestScore) : "--";
+  $("menu-pilot").textContent = curPilot().name + (curAid().id ? " (" + curAid().short + ")" : "");
+  $("menu-score").textContent = pilotStars(curPilot().id) + " ★";
   const det = $("slot-detail");
-  if (save.best != null) {
-    det.innerHTML = "Dernière course terminée. Meilleur temps : <span class='gold'>" + fmtTime(save.best) + "</span> &middot; " + save.runs + " tentative(s).";
+  if (fam) {
+    det.innerHTML = "Record de la famille : <span class='gold'>" + fmtFamily(fam) + "</span> &middot; " + save.runs + " course(s).";
   } else {
-    det.textContent = "Aucune course enregistree pour le moment.";
+    det.textContent = "Aucune course enregistrée pour le moment.";
   }
 }
 function refreshMuteBtn() { const b = $("btn-mute"); b.classList.toggle("muted", !!save.muted); b.title = save.muted ? "Son coupé (M)" : "Son activé (M)"; }

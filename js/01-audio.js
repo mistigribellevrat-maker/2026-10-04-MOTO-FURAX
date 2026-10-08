@@ -8,6 +8,7 @@ class SoundEngine {
   }
   init() {
     if (this.ok) return;
+    if (typeof loadVoices === "function") loadVoices();
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
@@ -210,7 +211,7 @@ const audio = new SoundEngine();
 class MusicEngine {
   constructor(a) {
     this.a = a; this.mode = null; this.level = 1; this.timer = null; this.step = 0; this.bar = 0; this.next = 0;
-    this.bpm = 126; this.duck = 1; this.ready = false;
+    this.bpm = 126; this.duck = 1; this.ready = false; this.tension = 0;
     this.roots = [57, 53, 60, 55];                         // La2, Fa2, Do3, Sol2 (notes MIDI)
     this.arp = [[0, 7, 12, 15], [0, 5, 12, 17], [0, 7, 12, 16], [0, 7, 11, 14]]; // intervalles par accord
   }
@@ -250,11 +251,13 @@ class MusicEngine {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
   }
   setLevel(l) { this.level = l; }
+  // 0..1 : papa tout pres ou fin de chrono -> tempo plus rapide et nappe de tension
+  setTension(t) { this.tension = damp(this.tension, clamp(t, 0, 1), 1.5, 1 / 60); }
   setDuck(on) { if (!this.ready) return; this.out.gain.setTargetAtTime(on ? 0.12 : (this.mode === "menu" ? 0.34 : 0.5), this.a.ctx.currentTime, 0.12); }
   _tick() {
     const c = this.a.ctx;
     if (!c || c.state !== "running") return;
-    const stepDur = 60 / this.bpm / 4;
+    const stepDur = 60 / (this.bpm * (1 + 0.14 * this.tension)) / 4;
     while (this.next < c.currentTime + 0.18) {
       this._play(this.step, this.next, stepDur);
       this.next += stepDur; this.step++;
@@ -299,6 +302,11 @@ class MusicEngine {
       // arpege
       const iv = ch[s % 4] + (lvl > 1 && s % 8 >= 4 ? 12 : 0);
       if (lvl > 0) this._note("square", MusicEngine.hz(root + 24 + iv), t, sd * 1.5, 0.045 + (lvl > 1 ? 0.025 : 0), 1700 + lvl * 700, 0.55);
+      // tension : pulsation aigue + roulement de caisse claire en fin de mesure
+      if (this.tension > 0.45) {
+        if (s % 2 === 0) this._note("sawtooth", MusicEngine.hz(root + 36), t, sd * 0.8, 0.02 + this.tension * 0.02, 2400, 0.3);
+        if (s >= 12) this._noise(t, 0.08, "bandpass", 2200, 0.08 + this.tension * 0.1);
+      }
     } else {
       if (s % 8 === 0) this._kick(t, 0.5);
       if (s === 4) this._noise(t, 0.12, "bandpass", 1900, 0.14);

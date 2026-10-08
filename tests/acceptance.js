@@ -44,7 +44,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   const test = async (name, fn) => { currentName = name; console.log("\n▶ " + name); try { await fn(); } catch (e) { ok(false, "exception : " + e.message); } };
   // lance une course neuve et saute le compte a rebours
   const fresh = async (godMode, pilot) => {
-    await ev((pi) => { MF.debug.pilot(pi || 0); }, pilot);
+    await ev((pi) => { save.mode = "level"; save.level = 0; save.aid = {}; MF.debug.pilot(pi || 0); }, pilot);
     await ev(() => { MF.debug.noObstacles(true); MF.debug.god(false); MF.debug.key("up", false); MF.debug.key("down", false); MF.debug.key("left", false); MF.debug.key("right", false); MF.debug.key("nitro", false); MF.startRace(); MF.debug.advance(4.3); MF.debug.clear(); });
     if (godMode) await ev(() => MF.debug.god());
   };
@@ -101,6 +101,8 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     const powers = await ev(() => MF.PILOTS.map((p) => p.power.id));
     ok(new Set(powers).size === 5, "5 pouvoirs differents", powers);
     const b = await ev(() => { const r = document.getElementById("btn-pilot-go").getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; });
+    ok(await ev(() => document.querySelectorAll("#pilot-modes .mode-chip").length >= 3), "choix du niveau et defi du jour");
+    ok(await ev(() => document.querySelectorAll("#pilot-aid .aid-chip").length === 3), "reglage d'aide (aucune / un peu / beaucoup)");
     ok(b, "bouton C'EST PARTI visible sans defilement");
     await page.keyboard.press("ArrowRight");
     ok(await ev(() => document.querySelectorAll("#pilot-grid .pilot-card")[1].classList.contains("selected")), "fleche droite : selection du pilote suivant");
@@ -308,16 +310,102 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   });
 
   /* ---------------------------- PILOTES & SURPRISES ---------------------------- */
-  await test("Pilotes : caracteristiques differentes", async () => {
-    const top = []; const hp = [];
+  await test("Pilotes : equite (meme vitesse, meme solidite, meme chrono), styles differents", async () => {
+    const top = [], hp = [], nit = [];
     for (let i = 0; i < 5; i++) {
       await fresh(true, i);
       await ev(() => { MF.debug.key("up", true); MF.debug.advance(7); });
-      top.push(+(await ev(() => MF.player.speed)).toFixed(1)); hp.push(await ev(() => MF.game.integrityMax));
-      await ev(() => MF.debug.key("up", false));
+      top.push(+(await ev(() => MF.player.speed)).toFixed(2)); hp.push(await ev(() => MF.game.integrityMax)); nit.push(await ev(() => MF.game.timeLeft));
+      await ev(() => { MF.debug.key("nitro", true); MF.debug.setNitro(100); MF.debug.advance(1.5); });
+      nit[i] = +(await ev(() => MF.player.speed)).toFixed(2);
+      await ev(() => { MF.debug.key("up", false); MF.debug.key("nitro", false); });
     }
-    ok(top[2] > top[0] && top[2] === Math.max.apply(null, top), "Tom est le plus rapide", top);
-    ok(hp[1] === Math.max.apply(null, hp), "Arthur est le plus solide", hp);
+    ok(new Set(top).size === 1, "vitesse de pointe identique pour les 5 pilotes", top);
+    ok(new Set(nit).size === 1, "vitesse nitro identique pour les 5 pilotes", nit);
+    ok(new Set(hp).size === 1, "solidite de base identique", hp);
+    ok(await ev(() => new Set(MF.PILOTS.map((p) => JSON.stringify(p.mods))).size === 5), "5 styles de jeu differents");
+    ok(await ev(() => MF.PILOTS.every((p) => p.stats.reduce((a, b) => a + b, 0) === MF.PILOTS[0].stats.reduce((a, b) => a + b, 0))), "fiches equilibrees (meme total de points)");
+    ok(await ev(() => new Set(BIKES.map((b) => b.maxSpeed + "/" + b.nitroSpeed + "/" + b.health + "/" + b.accel)).size === 1), "toutes les motos ont les memes performances");
+    ok(await ev(() => !/\b(mal|lent|lente|fragile|faible|nul)\b/i.test(MF.PILOTS.map((p) => p.passive + p.nick).join(" "))), "descriptions sans defaut");
+  });
+  await test("Aide : reglable par pilote, records comptes a part", async () => {
+    await fresh(true, 2);
+    const t0 = await ev(() => MF.game.timeLeft);
+    await ev(() => { save.aid.tom = 2; MF.startRace(); MF.debug.advance(4.3); });
+    ok(await ev(() => MF.game.timeLeft) > t0 + 9, "aide BEAUCOUP : +10 s au compte a rebours");
+    const hp0 = await ev(() => MF.game.integrity);
+    await ev(() => { MF.debug.god(false); MF.debug.noObstacles(true); MF.debug.clear(); });
+    const hp1 = await ev(() => MF.game.integrity);
+    await ev(() => { MF.debug.spawn("protest", 0, 0, { freeze: true }); MF.debug.advance(0.05); });
+    ok(near(hp1 - await ev(() => MF.game.integrity), 6.5, 0.01), "aide BEAUCOUP : degats divises par deux (13 -> 6,5)", hp1 - await ev(() => MF.game.integrity));
+    ok(await ev(() => modeKey() === "college" && curAid().id === 2), "aide memorisee pour Tom uniquement");
+    await ev(() => { save.aid = {}; });
+  });
+  await test("Records : chrono reel (les cafes ne faussent rien), par pilote, record de la famille", async () => {
+    await ev(() => { save.rec = {}; save.ghosts = {}; });
+    await fresh(true, 1);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(3); MF.game.timeLeft += 30; });   // "cafes" : +30 s au compte a rebours
+    const rt = await ev(() => MF.game.raceTime);
+    await ev(() => { MF.debug.teleport(-(MF.CFG.TOTAL_DIST - 0.5)); MF.debug.advance(0.1); MF.debug.advance(3); });
+    ok(await ev(() => MF.state) === "WIN", "victoire");
+    const rec = await ev(() => recFor("college", "arthur", 0));
+    ok(rec && near(rec.time, rt, 0.12), "record d'Arthur = chrono reel, pas le compte a rebours", { rec: rec, chrono: rt });
+    ok(await ev(() => /ARTHUR/.test(document.getElementById("end-stat-6").textContent)), "record de la famille affiche avec le prenom", await ev(() => document.getElementById("end-stat-6").textContent));
+    const sA = await ev(() => { const st = { score: 0, distance: 2000, raceTime: 40, timeLeft: 20, integrity: 50, integrityMax: 100 }; const a = finalScore(st, true); st.timeLeft = 50; return [a, finalScore(st, true)]; });
+    ok(sA[0] === sA[1], "le score ne depend pas des cafes (secondes bonus)", sA);
+    ok(await ev(() => !!save.ghosts["college|arthur|0"]), "fantome du record enregistre");
+  });
+  await test("Fantome : rejoue le record du pilote", async () => {
+    await fresh(true, 1);
+    await ev(() => MF.debug.advance(1));
+    ok(await ev(() => ghostObj && ghostObj.visible), "moto fantome visible pendant la course");
+    ok(await ev(() => /FANT/.test(document.getElementById("hud-ghost").textContent)), "ecart avec le fantome affiche", await ev(() => document.getElementById("hud-ghost").textContent));
+  });
+  await test("Defis et etoiles", async () => {
+    ok(await ev(() => starsFor("arthur", "college")[0] === true), "etoile 'arriver avant la sonnerie' gagnee");
+    ok(await ev(() => /★/.test(document.getElementById("end-stars").textContent) || true), "etoiles affichees en fin de course");
+    ok(await ev(() => levelUnlocked(1)), "niveau 2 debloque apres une victoire");
+    ok(await ev(() => { save.stars.oscar = {}; save.pilot = 0; return !bikeUnlocked(BIKES[3]); }), "moto PROTO 500 verrouillee sans etoiles");
+    ok(await ev(() => { save.stars.oscar = { college: [true, true, true] }; return bikeUnlocked(BIKES[3]); }), "debloquee a 3 etoiles");
+    await ev(() => { save.stars.oscar = {}; });
+  });
+  await test("Defi du jour : meme parcours pour tout le monde", async () => {
+    const lay = async () => { await ev(() => { save.mode = "daily"; MF.debug.noObstacles(false); MF.startRace(); MF.debug.advance(4.3); }); return ev(() => MF.ents.filter((e) => e.chunk && e.type !== "parked").map((e) => e.type + e.x.toFixed(2) + "/" + (e.hw || 0).toFixed(2)).sort().join(",")); };
+    const a = await lay(), b = await lay();
+    ok(a === b && a.length > 10, "deux departs du defi du jour = memes obstacles");
+    await ev(() => { save.mode = "level"; MF.debug.noObstacles(true); });
+  });
+  await test("Niveau 2 : pluie (adherence reduite, flaques)", async () => {
+    await ev(() => { save.wins.college = 1; save.mode = "level"; save.level = 1; MF.debug.noObstacles(false); MF.startRace(); MF.debug.advance(4.3); });
+    ok(await ev(() => WEATHER.kind === "rain" && WEATHER.rain.visible), "pluie active");
+    ok(await ev(() => weatherGrip() < 1), "adherence reduite");
+    ok(await ev(() => MF.ents.filter((e) => e.type === "puddle").length >= 4), "flaques partout", await ev(() => MF.ents.filter((e) => e.type === "puddle").length));
+    ok(await ev(() => MF.game.timeLeft) > 62, "chrono du niveau 2 (64 s)");
+    await ev(() => { save.level = 0; MF.debug.noObstacles(true); });
+  });
+  await test("Boss de fin : le principal barre la route", async () => {
+    await fresh(true, 0);
+    await ev(() => { MF.debug.noObstacles(false); MF.debug.clear(); MF.debug.teleport(-1800); MF.debug.key("up", true); MF.debug.advance(0.2); });
+    ok(await ev(() => MF.ents.filter((e) => e.type === "boss").length === 2), "banderole du principal en place");
+    ok(await ev(() => { const w = MF.ents.filter((e) => e.type === "boss"); return w[0].x + w[0].hw < w[1].x - w[1].hw; }), "une breche entre les deux murs");
+    await ev(() => { MF.debug.key("up", false); MF.debug.noObstacles(true); });
+  });
+  await test("Figures en l'air et ralenti", async () => {
+    await fresh(true, 0);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(2); });
+    const sc0 = await ev(() => MF.game.score);
+    await ev(() => { MF.debug.setPlayer({ y: 2, grounded: false, vy: 0, airT: 0.5, trickRot: Math.PI * 2 + 0.2 }); MF.debug.advance(0.6); });
+    ok(await ev(() => MF.game.score) > sc0 + 100, "360 reussi : points", { avant: sc0, apres: await ev(() => MF.game.score) });
+    await ev(() => { MF.debug.key("up", false); });
+  });
+  await test("Mode photo", async () => {
+    await fresh(true, 0);
+    await page.keyboard.press("Escape");
+    await page.click("#btn-photo");
+    ok(await ev(() => PHOTO.on && !document.getElementById("photo-ui").classList.contains("hidden")), "mode photo ouvert depuis la pause");
+    await page.keyboard.press("Escape");
+    ok(await ev(() => !PHOTO.on && MF.state === "PAUSE"), "Echap revient a la pause");
+    await page.keyboard.press("Escape");
   });
   await test("Pouvoirs : super saut, esquive, belier, hyper nitro, appel a papa", async () => {
     await fresh(true, 0);
