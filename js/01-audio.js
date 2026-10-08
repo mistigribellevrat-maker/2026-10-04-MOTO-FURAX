@@ -22,27 +22,37 @@ class SoundEngine {
     const d = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
 
-    // --- Moteur : 3 oscillateurs + filtre ---
+    // --- Moteur : ronron grave et doux ---
+    // Fini les dents de scie bourdonnantes : un triangle + un sinus grave, filtres sans resonance,
+    // modules en amplitude au rythme des explosions du monocylindre ("pout-pout" plutot que "bzzz").
+    this.engBus = this.ctx.createGain();                 // volume moteur reglable (DOUX / NORMAL / COUPE)
+    this.engBus.gain.value = SoundEngine.ENGINE_VOL[save.engine] != null ? SoundEngine.ENGINE_VOL[save.engine] : 0.55;
+    this.engBus.connect(this.masterGain);
     this.engGain = this.ctx.createGain();
     this.engGain.gain.value = 0;
     this.engFilter = this.ctx.createBiquadFilter();
     this.engFilter.type = "lowpass";
-    this.engFilter.frequency.value = 420;
-    this.engFilter.Q.value = 3.2;
-    const mk = (type, f, det) => {
+    this.engFilter.frequency.value = 320;
+    this.engFilter.Q.value = 0.5;
+    this.engAM = this.ctx.createGain();                  // modulation d'amplitude (pulsations)
+    this.engAM.gain.value = 0.72;
+    const mk = (type, f) => {
       const o = this.ctx.createOscillator();
       o.type = type;
       o.frequency.value = f;
-      o.detune.value = det || 0;
-      o.connect(this.engFilter);
       o.start();
       return o;
     };
-    this.engA = mk("sawtooth", 55, 0);
-    this.engB = mk("sawtooth", 55, 12);
-    this.engC = mk("square", 27.5, -6);
-    this.engFilter.connect(this.engGain);
-    this.engGain.connect(this.masterGain);
+    this.engA = mk("triangle", 46);
+    this.engB = mk("sine", 23);
+    const gB = this.ctx.createGain(); gB.gain.value = 0.9;
+    this.engA.connect(this.engFilter); this.engB.connect(gB); gB.connect(this.engFilter);
+    this.engLfo = mk("sine", 11);
+    this.engLfoDepth = this.ctx.createGain(); this.engLfoDepth.gain.value = 0.28;
+    this.engLfo.connect(this.engLfoDepth); this.engLfoDepth.connect(this.engAM.gain);
+    this.engFilter.connect(this.engAM);
+    this.engAM.connect(this.engGain);
+    this.engGain.connect(this.engBus);
 
     // --- Vent continu (gain module par la vitesse) ---
     this.windSrc = this.ctx.createBufferSource();
@@ -134,17 +144,22 @@ class SoundEngine {
   }
   setEngine(ratio, throttle, dt) {
     if (!this.ok) return;
-    const r = clamp(ratio, 0, 1.4);
-    const f = 52 + r * 210;
-    this.engA.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.05);
-    this.engB.frequency.setTargetAtTime(f * 1.01, this.ctx.currentTime, 0.05);
-    this.engC.frequency.setTargetAtTime(f * 0.5, this.ctx.currentTime, 0.06);
-    this.engFilter.frequency.setTargetAtTime(360 + r * 1500, this.ctx.currentTime, 0.08);
-    const idle = 0.028, open = 0.05 + r * 0.075;
-    this.engGain.gain.setTargetAtTime(idle + open * (0.35 + 0.65 * throttle), this.ctx.currentTime, 0.07);
-    this.windGain.gain.setTargetAtTime(r * r * 0.085, this.ctx.currentTime, 0.1);
-    this.skidGain.gain.setTargetAtTime((throttle < 0 && r > 0.15) ? 0.075 : 0, this.ctx.currentTime, 0.06);
-    this.nitroGain.gain.setTargetAtTime(this._nitro ? 0.13 : 0, this.ctx.currentTime, 0.05);
+    const r = clamp(ratio, 0, 1.4), t = this.ctx.currentTime;
+    const f = 44 + r * 120;                               // registre grave : pas de sifflement dans les aigus
+    this.engA.frequency.setTargetAtTime(f, t, 0.08);
+    this.engB.frequency.setTargetAtTime(f * 0.5, t, 0.08);
+    this.engLfo.frequency.setTargetAtTime(f * 0.25, t, 0.08);
+    this.engFilter.frequency.setTargetAtTime(260 + r * 520 + (throttle > 0 ? 120 : 0), t, 0.12);
+    const idle = 0.05, open = 0.06 + r * 0.06;
+    this.engGain.gain.setTargetAtTime(idle + open * (0.4 + 0.6 * Math.max(0, throttle)), t, 0.12);
+    this.windGain.gain.setTargetAtTime(r * r * 0.05, t, 0.15);
+    this.skidGain.gain.setTargetAtTime((throttle < 0 && r > 0.15) ? 0.035 : 0, t, 0.06);
+    this.nitroGain.gain.setTargetAtTime(this._nitro ? 0.055 : 0, t, 0.08);
+  }
+  // volume du moteur : "doux" (par defaut), "normal" ou "coupe"
+  setEngineVolume(mode) {
+    save.engine = mode; persistSave();
+    if (this.ok) this.engBus.gain.setTargetAtTime(SoundEngine.ENGINE_VOL[mode], this.ctx.currentTime, 0.1);
   }
   setNitro(on) { this._nitro = on; }
   setSiren(intensity, dt) {
@@ -152,8 +167,12 @@ class SoundEngine {
     this.sirenTime += dt;
     const two = Math.sin(this.sirenTime * Math.PI * 4.4) > 0 ? 1 : 0.72;
     this.sirenOsc.frequency.setTargetAtTime(760 * two, this.ctx.currentTime, 0.03);
-    this.sirenGain.gain.setTargetAtTime(intensity * 0.055, this.ctx.currentTime, 0.08);
+    this.sirenGain.gain.setTargetAtTime(intensity * 0.04, this.ctx.currentTime, 0.08);
   }
+  screech() { this.noiseBurst(0.55, "bandpass", 2600, 0.16, 4); this.beep(1500, 0.4, "sawtooth", 0.03, 900); }
+  whoosh() { this.noiseBurst(0.22, "bandpass", 1300, 0.14, 1.2); }
+  power() { this.beep(520, 0.12, "triangle", 0.14, 1040); setTimeout(() => this.beep(780, 0.22, "triangle", 0.12, 1560), 90); }
+  combo(n) { this.beep(660 + Math.min(n, 6) * 110, 0.09, "triangle", 0.1); }
   jump() { this.beep(300, 0.22, "sine", 0.18, 760); }
   land() { this.noiseBurst(0.14, "lowpass", 300, 0.28); this.beep(90, 0.12, "sine", 0.2, 55); }
   crash(big) {
@@ -180,6 +199,7 @@ class SoundEngine {
   ui() { this.beep(1180, 0.045, "square", 0.05); }
   uiBig() { this.beep(700, 0.08, "square", 0.09); setTimeout(() => this.beep(1050, 0.12, "square", 0.09), 70); }
 }
+SoundEngine.ENGINE_VOL = { doux: 0.55, normal: 1, coupe: 0 };
 const audio = new SoundEngine();
 
 /* ============================================================================

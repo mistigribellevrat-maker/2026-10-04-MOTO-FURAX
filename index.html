@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MOTOR FURAX — La Course au Collège</title>
-<meta name="description" content="MOTOR FURAX : aide Sam à rejoindre son collège avant la sonnerie, en moto, à travers une ville pleine d'obstacles.">
+<meta name="description" content="MOTOR FURAX : aide ton pilote à rejoindre son collège avant la sonnerie, en moto, à travers une ville pleine d'obstacles.">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%23ff4d00"/><text x="32" y="43" font-size="26" font-family="Arial Black,sans-serif" font-weight="900" fill="white" text-anchor="middle">MF</text></svg>'>
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -31,7 +31,7 @@
     <div class="hud-clockbox">
       <div class="clock-line">
         <svg class="bell" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-6 6v4l-2 3h16l-2-3V9a6 6 0 0 0-6-6zm-2 15a2 2 0 0 0 4 0z"/></svg>
-        <div class="clock-time" id="hud-clock">1:06</div>
+        <div class="clock-time" id="hud-clock">1:00</div>
       </div>
       <div class="clock-label">SONNERIE DU COLLÈGE</div>
       <div class="track" id="hud-track">
@@ -42,7 +42,7 @@
       </div>
       <div class="clock-sub"><span id="hud-dist">2000 m</span><span id="hud-mode">CAP SUR LE COLLÈGE</span></div>
     </div>
-    <div class="hud-btns hud-spacer"></div>
+    <div class="hud-btns hud-spacer"><div class="hud-score" id="hud-score-box"><span>SCORE</span><b id="hud-score">0</b><i id="hud-combo"></i></div></div>
   </div>
 
   <!-- bas gauche : vitesse + nitro -->
@@ -60,6 +60,7 @@
     <div class="spd-read"><span id="hud-speed">0</span><small>KM/H</small></div>
     <div class="nitro-read" id="hud-nitro-box"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg><b id="hud-nitro-pct">100</b><span>NITRO · MAJ</span></div>
     <i id="hud-nitro" class="hidden"></i>
+    <div class="power-read" id="hud-power"><div class="pw-fill" id="hud-power-fill"></div><b id="hud-power-name">POUVOIR</b><span>E</span></div>
   </div>
 
   <!-- bas droite : integrite + papa -->
@@ -75,6 +76,7 @@
   </div>
 
   <div id="hud-alert"></div>
+  <div id="hud-threat" class="hud-threat"><b>&#9888;</b><span>VOITURE FOLLE</span><i>&#9660;</i></div>
   <div id="hud-pickup"></div>
   <div id="banner-school"><b>COLLÈGE MOLIÈRE</b><span>DERNIÈRE SONNERIE DANS 20 SECONDES</span></div>
   <div id="countdown" class="hidden"></div>
@@ -89,6 +91,7 @@
       <button class="mc-btn mc-accel" data-k="up" type="button">GAZ</button>
       <button class="mc-btn mc-jump" data-k="jump" type="button">SAUT</button>
       <button class="mc-btn mc-nitro" data-k="nitro" type="button">NITRO</button>
+      <button class="mc-btn mc-power" data-k="power" type="button">POUVOIR</button>
     </div>
   </div>
 </div>
@@ -100,11 +103,14 @@
   <div class="home-inner">
     <div class="logo-kicker">Course urbaine &middot; 8h55 &middot; dernier avertissement</div>
     <h1 class="game-title"><span class="t-motor">MOTOR</span><span class="t-furax">FURAX</span></h1>
-    <p class="home-tag">La sonnerie retentit dans <b id="tag-time">66 secondes</b>. Le collège est à l'autre bout de la ville. Ton père est derrière toi. Ta copine t'attend. Les manifestants bloquent la rue. <b>Fonce.</b></p>
+    <p class="home-tag">La sonnerie retentit dans <b id="tag-time">60 secondes</b>. Le collège est à l'autre bout de la ville. Papa est derrière toi, une voiture folle sème la panique, les manifestants bloquent la rue. <b>Choisis ton pilote. Fonce.</b></p>
     <button id="btn-play" class="btn btn-xl" type="button">JOUER</button>
     <p class="home-hint">Entrée &middot; Espace &middot; ou clique</p>
   </div>
-  <div class="credit-tip">Astuce : place une image <b>motor_furax.jpg</b> à côté de ce fichier pour personnaliser l'accueil.</div>
+  <div class="home-poster" id="home-poster">
+    <img id="home-poster-img" alt="Affiche MOTOR FURAX">
+    <div class="poster-ph"><b>AFFICHE DU JEU</b><span>Place ton image ici :<br><code>assets/affiche.jpg</code></span><small>format conseillé 1200 × 1600 (3:4) — tout format est accepté</small></div>
+  </div>
 </div>
 
 <!-- ============================ MENU ============================ -->
@@ -122,11 +128,33 @@
     </div>
     <div class="menu-foot">
       <span>Record : <b id="menu-best">--</b></span>
+      <span>Meilleur score : <b id="menu-score">--</b></span>
+    </div>
+    <div class="menu-foot">
+      <span>Pilote : <b id="menu-pilot">OSCAR</b></span>
       <span>Moto : <b id="menu-bike">CROSS 125</b></span>
     </div>
     <div class="menu-foot menu-foot-2">
       <button id="btn-quality" class="link-btn" type="button">GRAPHISMES : <b>AUTO</b></button>
-      <span class="hint-keys">Flèches / ZQSD · Espace saut · Maj nitro</span>
+      <button id="btn-engine" class="link-btn" type="button">MOTEUR : <b>DOUX</b></button>
+    </div>
+    <div class="menu-foot menu-foot-2">
+      <span class="hint-keys">Flèches / ZQSD · Espace saut · Maj nitro · E pouvoir</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ CHOIX DU PILOTE ============================ -->
+<div id="modal-pilot" class="modal hidden">
+  <div class="modal-box pilot-box">
+    <div class="pilot-level" id="pilot-level">NIVEAU 1 · COLLÈGE MOLIÈRE</div>
+    <h2 style="color:var(--gold)">CHOISIS TON PILOTE</h2>
+    <p class="sub">Chaque pilote a son style de conduite et son pouvoir spécial (touche <b>E</b>).</p>
+    <div class="pilot-grid" id="pilot-grid"></div>
+    <div class="pilot-detail" id="pilot-detail"></div>
+    <div class="modal-actions">
+      <button id="btn-pilot-go" class="btn" type="button">C'EST PARTI !</button>
+      <button id="btn-pilot-close" class="btn btn-ghost" type="button">RETOUR</button>
     </div>
   </div>
 </div>
@@ -152,7 +180,7 @@
     <div class="slot">
       <div class="slot-ic">MF</div>
       <div class="slot-info">
-        <h4>Emplacement 1 &mdash; Sam, en retard</h4>
+        <h4>Emplacement 1 &mdash; En retard au collège</h4>
         <p id="slot-detail">Aucune course enregistrée pour le moment.</p>
       </div>
     </div>
@@ -163,7 +191,7 @@
         <p>Verrouillé &mdash; déblocage prochainement (nouveaux quartiers).</p>
       </div>
     </div>
-    <p class="notice">La sauvegarde automatique arrive bientôt. En attendant, ton meilleur temps est conservé.</p>
+    <p class="notice">La sauvegarde automatique arrive bientôt. En attendant, ton meilleur temps et ton meilleur score sont conservés.</p>
     <div class="modal-actions">
       <button id="btn-load-confirm" class="btn" type="button">CHARGER</button>
       <button id="btn-load-close" class="btn btn-ghost" type="button">ANNULER</button>
@@ -194,6 +222,8 @@
       <div class="end-stat"><b id="end-stat-2">--</b><span>intégrité moto</span></div>
       <div class="end-stat"><b id="end-stat-3">--</b><span>distance parcourue</span></div>
       <div class="end-stat rec"><b id="end-stat-4">--</b><span>meilleur temps</span></div>
+      <div class="end-stat score"><b id="end-stat-5">0</b><span>score</span></div>
+      <div class="end-stat rec"><b id="end-stat-6">--</b><span>meilleur score</span></div>
     </div>
     <div class="end-actions">
       <button id="btn-replay" class="btn" type="button">REJOUER</button>
@@ -220,7 +250,9 @@
 <script src="js/30-world.js"></script>
 <script src="js/31-school.js"></script>
 <script src="js/32-fx.js"></script>
+<script src="js/33-events.js"></script>
 <script src="js/41-gamefeel.js"></script>
+<script src="js/42-pilots.js"></script>
 <script src="js/40-gameplay.js"></script>
 <script src="js/99-hooks.js"></script>
 </body>

@@ -158,9 +158,10 @@ function buildBikeVisual(def) {
 }
 
 /* -------------------------------- LE PILOTE -------------------------------- */
-function buildRiderVisual(def) {
+function buildRiderVisual(def, pilot) {
+  pilot = pilot || curPilot();
   const g = new THREE.Group();
-  const jacket = 0x2f5fb8, jacket2 = 0xf2f2f2, jeans = 0x232c40, shoe = 0xf2f2f2, glove = 0x1b1c20, skin = 0xe8b48a;
+  const jacket = pilot.jacket, jacket2 = pilot.jacket2, jeans = 0x232c40, shoe = 0xf2f2f2, glove = 0x1b1c20, skin = 0xe8b48a;
   const HP = [0, 0.9, 0.3], SH = [0, 1.3, -0.04];
   const cl = new GeoBuilder();
   // tronc penche en avant
@@ -190,10 +191,18 @@ function buildRiderVisual(def) {
   // tete + casque (pivote)
   const head = new THREE.Group(); head.position.set(0, 1.42, -0.1); g.add(head);
   const hb = new GeoBuilder();
-  hb.sphere(0.185, 0, 0.04, 0, 0xf4f4f6, { sx: 0.98, sy: 1.0, sz: 1.14, ws: 20, hs: 14 });
+  hb.sphere(0.185, 0, 0.04, 0, pilot.helmet, { sx: 0.98, sy: 1.0, sz: 1.14, ws: 20, hs: 14 });
   hb.sphere(0.188, 0, 0.1, 0.0, def.color, { sx: 0.2, sy: 0.9, sz: 1.14, ws: 12, hs: 10 });  // bande couleur
   hb.rbox(0.2, 0.09, 0.11, 0.04, 0, -0.1, -0.15, 0x2b2d33);                                  // mentonniere
   head.add(meshOf(hb.build(), GFX.mat.paint));
+  if (pilot.ponytail) {
+    // queue de cheval qui depasse du casque
+    const pt = new GeoBuilder();
+    pt.sphere(0.07, 0, -0.02, 0.2, pilot.ponytail, { ws: 8, hs: 6 });
+    pt.capsule(0.055, 0.22, 0, -0.1, 0.3, pilot.ponytail, { rx: 1.0 });
+    pt.sphere(0.05, 0, -0.2, 0.4, pilot.ponytail, { ws: 8, hs: 6 });
+    head.add(meshOf(pt.build(), GFX.mat.cloth));
+  }
   const vz = new GeoBuilder();
   vz.sphere(0.176, 0, 0.04, -0.03, 0x0a1822, { sx: 0.9, sy: 0.4, sz: 0.95, ws: 14, hs: 8 });
   const visor = meshOf(vz.build(), GFX.mat.glass); visor.castShadow = false;
@@ -221,7 +230,7 @@ function buildPlayer() {
   player.steer = b.steer;
   player.boostFlame = b.flame;
   player.exhaustPos = b.exhaust;
-  const r = buildRiderVisual(def);
+  const r = buildRiderVisual(def, curPilot());
   const pivot = new THREE.Group();           // pivot a hauteur de hanche : le pilote se couche autour de la selle
   pivot.position.set(0, 0.9, 0.3);
   r.root.position.set(0, -0.9, -0.3);
@@ -233,6 +242,7 @@ function buildPlayer() {
   player.bike.traverse((o) => { if (o.isMesh) { o.castShadow = o !== b.flame; o.receiveShadow = false; } });
   b.flame.castShadow = false; b.flame.userData.core.castShadow = false;
   player.builtBike = save.bike;
+  player.builtPilot = save.pilot;
   // ombre de contact douce
   if (!player.shadow) {
     const shTex = canvasTex(128, 128, (x, w, h) => {
@@ -558,7 +568,7 @@ function makeItem(kind) {
   e.t = Math.random() * 6;
   e.update = (ent, dt) => {
     ent.t += dt;
-    item.position.y = 1.05 + Math.sin(ent.t * 2.6) * 0.14;
+    item.position.y = 1.05 + (ent.airY || 0) + Math.sin(ent.t * 2.6) * 0.14;
     item.rotation.y += dt * 1.9;
     halo.scale.setScalar(1 + Math.sin(ent.t * 3) * 0.1);
   };
