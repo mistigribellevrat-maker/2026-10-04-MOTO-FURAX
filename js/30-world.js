@@ -190,7 +190,14 @@ function layoutChunk(chunk, index, demo) {
   if (dm) c.add(dm);
   if (!demo && !DBG.noObstacles && dist < CFG.TOTAL_DIST - 60 && index > 0) {
     const orng = mulberry32((index * 2654435761 + RUN_SEED) >>> 0);
-    spawnPattern(chunk, c, 0, dist, zone, orng, diff);
+    // tout le hasard des obstacles (taille des manifs, couleurs...) suit la graine de la course
+    const mr = Math.random;
+    Math.random = mulberry32((index * 40503 + RUN_SEED * 7) >>> 0);
+    try {
+      spawnPattern(chunk, c, 0, dist, zone, orng, diff);
+      // pluie : flaques supplementaires un peu partout
+      if (curLevel().weather === "rain") for (let k = 0; k < 2; k++) addEnt(chunk, c, makePuddle(), [-4.5, 0, 4.5][Math.floor(orng() * 3)] + rnd(-1, 1), -CFG.CHUNK_LEN / 2 + 8 + orng() * (CFG.CHUNK_LEN - 16));
+    } finally { Math.random = mr; }
   }
 }
 
@@ -449,7 +456,7 @@ function registerSolid(chunk, obj, zLocal, x, hw, hl, type, damage) {
 /* ------------------------------- PATTERNS JEU ------------------------------ */
 function spawnPattern(chunk, c, zMid, dist, zone, rng, diff) {
   const lanes = [-4.5, 0, 4.5];
-  const dens = LEVELS[save.level].density || 1;
+  const dens = curLevel().density || 1;
   const H = CFG.CHUNK_LEN / 2;
   // morceaux de bravoure : tremplin + manif sur toute la chaussee, ou barrage a une seule breche
   const special = rng();

@@ -29,32 +29,76 @@ function renderPilots() {
     card.style.setProperty("--pc", p.accent);
     card.appendChild(pilotPhoto(p));
     const info = document.createElement("div");
+    const aid = AIDS[save.aid[p.id] || 0], r = recFor(modeKey(), p.id, aid.id);
     info.innerHTML = "<h3>" + p.name + "</h3><div class='nick'>" + p.nick + "</div><div class='shop-stats'>" +
-      p.stats.map((v, k) => statRow(PILOT_STATS[k], v)).join("") + "</div>";
+      p.stats.map((v, k) => statRow(PILOT_STATS[k], v)).join("") + "</div>" +
+      "<div class='pilot-rec'><span>★ " + pilotStars(p.id) + "</span><span>" + (r && r.time != null ? fmtSec(r.time) : "--") + (aid.id ? " <i>" + aid.short + "</i>" : "") + "</span></div>";
     card.appendChild(info);
     card.addEventListener("click", () => selectPilot(i));
     card.addEventListener("dblclick", () => { selectPilot(i); startRace(); });
     grid.appendChild(card);
   });
   renderPilotDetail();
-  $("pilot-level").textContent = LEVELS[save.level].name;
+  renderModes();
+  renderAid();
+}
+// niveaux + defi du jour
+function renderModes() {
+  const box = $("pilot-modes");
+  box.innerHTML = "";
+  const chip = (label, sub, on, locked, fn) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "mode-chip" + (on ? " on" : "") + (locked ? " locked" : "");
+    b.innerHTML = "<b>" + label + "</b><small>" + sub + "</small>";
+    if (!locked) b.addEventListener("click", () => { fn(); audio.ui(); renderPilots(); });
+    box.appendChild(b);
+  };
+  LEVELS.forEach((L, i) => {
+    const unlocked = levelUnlocked(i);
+    const sub = L.locked ? "bientôt" : (!unlocked ? "🔒 gagne le niveau " + i : (L.weather === "rain" ? "pluie, vent, flaques" : L.time + " s"));
+    chip(L.name.split(" · ")[0], L.locked ? L.short : (unlocked ? L.short : "VERROUILLÉ") + " · " + sub, save.mode === "level" && save.level === i, !unlocked, () => { save.mode = "level"; save.level = i; persistSave(); });
+  });
+  const d = new Date();
+  chip("DÉFI DU JOUR", "même parcours pour tous · " + String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0"), save.mode === "daily", false, () => { save.mode = "daily"; persistSave(); });
+}
+function renderAid() {
+  const p = curPilot();
+  $("pilot-aid-name").textContent = p.name;
+  const box = $("pilot-aid");
+  box.innerHTML = "";
+  AIDS.forEach((a) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "aid-chip" + ((save.aid[p.id] || 0) === a.id ? " on" : "");
+    b.textContent = a.name;
+    b.addEventListener("click", () => { save.aid[p.id] = a.id; persistSave(); audio.ui(); renderPilots(); });
+    box.appendChild(b);
+  });
 }
 function renderPilotDetail() {
-  const p = curPilot();
+  const p = curPilot(), L = curLevel();
+  const owned = save.mode === "daily" ? [false, false, false] : starsFor(p.id, LEVELS[save.level].id);
   $("pilot-detail").innerHTML =
     "<div><h4>STYLE · " + p.name + "</h4><p>" + p.passive + "</p></div>" +
-    "<div class='pw'><h4>POUVOIR (E)</h4><p><b>" + p.power.name + "</b> — " + p.power.desc + " <span style='color:#8d99ae'>(recharge " + p.power.cd + " s)</span></p></div>";
+    "<div class='pw'><h4>POUVOIR (E)</h4><p><b>" + p.power.name + "</b> — " + p.power.desc + " <span style='color:#8d99ae'>(recharge " + p.power.cd + " s)</span></p></div>" +
+    "<div class='ch'><h4>DÉFIS · " + L.short + "</h4>" + L.challenges.map((c, i) => "<p class='" + (owned[i] ? "ok" : "") + "'>" + (owned[i] ? "★ " : "☆ ") + c.text + "</p>").join("") + "</div>" +
+    "<div class='fam'><h4>RECORD DE LA FAMILLE</h4><p>" + fmtFamily(familyRecord(modeKey())) + "</p></div>";
 }
 function selectPilot(i) {
   i = (i + PILOTS.length) % PILOTS.length;
   if (i === save.pilot && player.builtPilot === i) return;
   save.pilot = i;
+  // chaque pilote garde sa moto (si elle est toujours debloquee)
+  const bk = save.bikes[PILOTS[i].id] || 0;
+  save.bike = BIKES[bk] && pilotStars(PILOTS[i].id) >= (BIKES[bk].stars || 0) ? bk : 0;
   persistSave();
   audio.ui();
   document.querySelectorAll("#pilot-grid .pilot-card").forEach((c, k) => c.classList.toggle("selected", k === i));
   const sel = document.querySelectorAll("#pilot-grid .pilot-card")[i];
   if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: "nearest", inline: "center" });
   renderPilotDetail();
+  renderAid();
   refreshMenuInfo();
   buildPlayer(); player.root.position.set(player.x, 0, player.z); player.root.visible = true;
 }
@@ -91,12 +135,13 @@ function usePower(st) {
     pw.active = 4;
     showAlert("BÉLIER !", "gold", 900);
   } else if (P.id === "hyper") {
-    pw.active = 3; st.nitro = 100;
+    pw.active = 2; st.nitro = 100;
     showAlert("HYPER NITRO !", "cyan", 900);
   } else if (P.id === "dash") {
     const s = (input.right ? 1 : 0) - (input.left ? 1 : 0);
     player.dashDir = s || (player.x > 0 ? -1 : 1);
     player.dash = 0.2; pw.active = 0.6;
+    st.nitro = Math.min(100, st.nitro + pmod("dashNitro"));
     audio.whoosh();
     showAlert("ESQUIVE !", "cyan", 700);
   } else if (P.id === "call") {

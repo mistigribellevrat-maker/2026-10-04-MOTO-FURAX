@@ -332,7 +332,7 @@ function makeGirlfriend() {
         phone.visible = false;
         h.armR.rotation.x = 1.4;
         spawnPhone(ent, P);
-        audio.kiss();
+        audio.kiss(); playVoice(["copine"]);
         heartsBurst(ent.obj.position.x, 1.9, ent.z, 34);
       }
     } else if (ent.hasThrown) h.armR.rotation.x = damp(h.armR.rotation.x, 0.2, 6, dt);

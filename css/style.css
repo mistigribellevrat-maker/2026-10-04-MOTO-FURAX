@@ -437,3 +437,68 @@ body.paused #hud *,body.paused #dmgborder,body.paused #flash,body.paused #countd
 .end-stats{grid-template-columns:repeat(3,1fr)}
 .end-stat.score b{color:var(--cyan)}
 @media (max-width:640px){.end-stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ============================================================================
+   v3 — niveaux, aide, records, etoiles, fantome, mode photo
+   ============================================================================ */
+.pilot-modes{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+.mode-chip{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border-radius:10px;cursor:pointer;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.18);color:#c9d4e6;font-family:var(--font-b)}
+.mode-chip b{font-family:var(--font-d);font-size:.72rem;letter-spacing:.14em}
+.mode-chip small{font-size:.72rem;font-weight:600;color:#8d99ae}
+.mode-chip:hover{border-color:rgba(255,255,255,.45)}
+.mode-chip.on{border-color:var(--cyan);background:rgba(34,224,255,.14);color:#fff;box-shadow:0 0 18px rgba(34,224,255,.3)}
+.mode-chip.on small{color:#bfefff}
+.mode-chip.locked{opacity:.45;cursor:not-allowed}
+.pilot-rec{display:flex;justify-content:space-between;margin-top:8px;padding-top:6px;border-top:1px solid rgba(255,255,255,.1);font-family:var(--font-d);font-size:.72rem;color:var(--gold)}
+.pilot-rec span:last-child{color:#fff}
+.pilot-rec i{font-style:normal;color:#8d99ae;font-family:var(--font-b);font-size:.7rem}
+.pilot-detail .ch p{font-size:.86rem;color:#8d99ae;margin:1px 0}
+.pilot-detail .ch p.ok{color:var(--gold)}
+.pilot-detail .fam p{font-family:var(--font-d);font-size:.9rem;color:var(--gold)}
+.pilot-aid{margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;font-size:.86rem;color:#9aa7bc;font-weight:700}
+.pilot-aid b{color:#fff}
+.pilot-aid > div{display:flex;gap:6px}
+.pilot-aid small{flex-basis:100%;text-align:center;font-size:.74rem;color:#6f7b90;font-weight:600}
+.aid-chip{padding:5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.05);color:#c9d4e6;
+  font-family:var(--font-d);font-size:.66rem;letter-spacing:.12em;cursor:pointer}
+.aid-chip.on{border-color:var(--green);background:rgba(61,220,132,.16);color:#fff}
+.pilot-box{overflow:auto}
+@media (max-height:760px){.pilot-photo{height:clamp(90px,20vh,200px)}.pilot-box h2{font-size:1.2rem}.pilot-box .sub{display:none}}
+
+.end-stat.time b{color:#fff;font-size:1.45rem}
+.end-stars{display:flex;flex-direction:column;gap:4px;margin:0 0 14px;text-align:left}
+.end-ch{display:flex;align-items:center;gap:8px;font-size:.92rem;color:#8d99ae;font-weight:600}
+.end-ch b{font-size:1.15rem;color:#5c6474;width:1.2em;text-align:center}
+.end-ch.owned b{color:#9a8240}
+.end-ch.ok{color:#fff}.end-ch.ok b{color:var(--gold);text-shadow:0 0 12px rgba(255,197,49,.8)}
+.end-newstars{font-family:var(--font-d);font-size:.78rem;letter-spacing:.12em;color:var(--gold);margin-top:4px}
+.end-unlocks{display:flex;flex-direction:column;gap:4px;margin:-4px 0 14px;font-weight:700;color:var(--green)}
+.hud-score em{font-style:normal;font-family:var(--font-b);font-weight:700;font-size:.72em;color:#7df0ff;letter-spacing:.04em;min-height:1em}
+
+/* ---------- Mode photo ---------- */
+body.photo-mode #hud,body.photo-mode #screen-pause{display:none!important}
+.photo-ui{position:absolute;inset:0;z-index:45;pointer-events:none}
+.photo-ui .photo-top{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-family:var(--font-d);font-size:.68rem;letter-spacing:.14em;
+  color:#c9d4e6;background:rgba(5,8,14,.7);padding:8px 14px;border-radius:999px;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+.photo-bar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:center;
+  pointer-events:auto;background:rgba(5,8,14,.82);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:12px 16px;max-width:96vw}
+.photo-bar .btn{padding:10px 20px;font-size:.8rem}
+.photo-filters{display:flex;gap:6px;flex-wrap:wrap}
+.photo-dof{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;color:#9aa7bc}
+#webgl.photo-drag{cursor:grabbing}
+/* ecran pilote compact : tout tient en 720p, boutons toujours visibles */
+.pilot-detail{grid-template-columns:1.25fr 1.25fr 1fr .9fr;gap:12px;padding:10px 14px;margin-top:10px}
+.pilot-detail p{font-size:.86rem}
+.pilot-photo{height:clamp(84px,19vh,240px)}
+.pilot-box h2{font-size:1.3rem;margin-bottom:8px}
+.pilot-box .sub{display:none}
+.pilot-card .shop-stats{gap:3px;margin-top:6px}
+.pilot-card h3{margin-top:6px}
+.pilot-foot{position:sticky;bottom:-18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin:10px -28px -18px;padding:10px 28px 14px;background:linear-gradient(180deg,rgba(12,17,28,.6),rgba(12,17,28,.98) 40%)}
+.pilot-foot .pilot-aid{margin-top:0}
+.pilot-foot .modal-actions{margin-top:0}
+.pilot-foot .btn{padding:12px 30px}
+@media (max-width:860px){.pilot-detail{grid-template-columns:1fr 1fr}.pilot-foot{justify-content:center}}
+@media (max-width:520px){.pilot-detail{grid-template-columns:1fr}}

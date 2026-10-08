@@ -32,7 +32,7 @@ function clearFreeEnts() {
 
 /* --------------------------------- SCORE ----------------------------------- */
 function addScore(st, pts, label, bump) {
-  if (bump) { st.combo = Math.min(8, st.combo + 1); st.comboT = 5; audio.combo(st.combo); }
+  if (bump) { st.combo = Math.min(8, st.combo + 1); st.comboT = 5; st.maxCombo = Math.max(st.maxCombo || 1, st.combo); audio.combo(st.combo); }
   const gain = Math.round(pts * (bump ? st.combo : 1));
   st.score += gain;
   if (label) showPickup(label + "  +" + gain);
@@ -59,6 +59,7 @@ function checkNearMiss(st) {
       addScore(st, 40, "PAR-DESSUS !", true);
     } else if (gap >= 0 && gap < 1.5) {
       addScore(st, gap < 0.6 ? 70 : 45, gap < 0.6 ? "RAS-LES-PÂQUERETTES !" : "FRÔLÉ !", true);
+      if (gap < 0.45 && player.speed > 30) slowMo(0.35);
       st.nitro = Math.min(100, st.nitro + pmod("nearNitro"));
       audio.whoosh();
     }
@@ -147,6 +148,7 @@ function updateCrazyCar(e, dt, P) {
       e.phase = "flee";
       if (!e.hitPlayer && gameState && !gameState.endSeq) {
         addScore(gameState, 150, "VOITURE FOLLE ÉVITÉE !", true);
+        slowMo(0.5);
         gameState.nitro = Math.min(100, gameState.nitro + 15);
       }
     }
@@ -235,14 +237,16 @@ function updateEvents(dt, st) {
   if (DBG.noObstacles || st.endSeq) return;
   st.evT -= dt;
   if (st.evT > 0 || CFG.TOTAL_DIST - st.distance < 260) return;
-  st.evT = rnd(CFG.EVENT_GAP[0], CFG.EVENT_GAP[1]) / LEVELS[save.level].events;
+  const R = st.evRng;                                    // tirage reproductible (defi du jour)
+  st.evT = lerp(CFG.EVENT_GAP[0], CFG.EVENT_GAP[1], R()) / curLevel().events;
   if (crazyRef) { st.evT = 3; return; }
   // la voiture folle est garantie au moins une fois par course
   if (!st.seenCrazy && st.raceTime > 16) { spawnCrazyCar(st); return; }
-  const r = Math.random();
+  const r = R();
   if (r < 0.34) spawnCrazyCar(st);
   else if (r < 0.56) spawnOncoming(st);
   else if (r < 0.72) { if (!dadShortcut()) surpriseRoadworks(); }
   else if (r < 0.87) surpriseRoadworks();
   else surpriseBonus();
+  if (curLevel().weather === "rain" && R() < 0.5) st.gustT = 0.01;   // pluie : rafale de vent en prime
 }

@@ -1,0 +1,17 @@
+VOIX DU JEU (facultatif)
+========================
+Enregistre tes propres voix (téléphone, micro...) et dépose-les ici en MP3,
+avec exactement ces noms. Chaque fichier manquant est simplement ignoré.
+
+  papa-oscar.mp3      papa crie « OSCAAAR ! »
+  papa-arthur.mp3     papa crie « ARTHUUUR ! »
+  papa-tom.mp3        papa crie « TOOOM ! »
+  papa-yanis.mp3      papa crie « YANIIIS ! »
+  papa-clothilde.mp3  papa crie « CLOTHILDEEE ! »
+  papa-1.mp3 … papa-5.mp3   autres répliques de papa (« Reviens ici ! », « Ton cartable ! »…)
+  copine.mp3          la copine qui lance son téléphone
+  principal.mp3       le principal qui barre la route devant le collège
+  victoire.mp3        cri de victoire à l'arrivée
+
+Conseils : 1 à 3 secondes par fichier, voix forte et proche du micro,
+sans blanc au début (le son part tout de suite).
