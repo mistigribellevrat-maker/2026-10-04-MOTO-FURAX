@@ -1,0 +1,8 @@
+{
+  "name": "motor-furax-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Recette automatisée de MOTOR FURAX",
+  "scripts": { "test": "node acceptance.js" },
+  "devDependencies": { "playwright": "^1.56.0" }
+}
