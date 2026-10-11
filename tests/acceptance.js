@@ -399,8 +399,8 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   await test("Fantome : rejoue le record du pilote", async () => {
     await fresh(true, 1);
     await ev(() => MF.debug.advance(1));
-    ok(await ev(() => ghostObj && ghostObj.visible), "moto fantome visible pendant la course");
-    ok(await ev(() => /FANT/.test(document.getElementById("hud-ghost").textContent)), "ecart avec le fantome affiche", await ev(() => document.getElementById("hud-ghost").textContent));
+    ok(await ev(() => MF.ghosts[0].obj && MF.ghosts[0].obj.visible), "moto fantome visible pendant la course");
+    ok(await ev(() => /^TOI : /.test(document.getElementById("hud-ghost").textContent)), "ecart avec le fantome affiche (TOI : x m devant / derriere)", await ev(() => document.getElementById("hud-ghost").textContent));
   });
   await test("Defis et etoiles", async () => {
     ok(await ev(() => starsFor("arthur", "college")[0] === true), "etoile 'arriver avant la sonnerie' gagnee");
@@ -620,6 +620,26 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     const lose = await lv();
     ok(lose.eng < 0.004 && lose.wind < 0.004, "a la defaite : moteur coupe", lose);
     await ev(() => { MF.debug.key("up", false); MF.debug.key("nitro", false); });
+  });
+  await test("Fantomes : toi + champion de la famille, reglage du menu (hors-ligne)", async () => {
+    const mk = (time, amp) => { const n = Math.round(time * 10) + 1, d = []; for (let i = 0; i < n; i++) d.push(+(Math.sin(i / 14) * amp).toFixed(2), 0, +(-(2000 * i) / (n - 1)).toFixed(1)); return { t: time, d: d }; };
+    await ev((g) => { save.rec = { college: { oscar: { 0: { time: 50, score: 5000 } }, tom: { 0: { time: 55, score: 4000 } } } }; save.ghosts = { "college|oscar|0": g.a, "college|tom|0": g.b }; save.ghostMode = "both"; save.aid = {}; }, { a: mk(50, 4), b: mk(55, -2) });
+    await fresh(true, 2);
+    const both = await ev(() => ({ me: MF.ghosts[0].pilot && MF.ghosts[0].pilot.id, fam: MF.ghosts[1].pilot && MF.ghosts[1].pilot.id, d0: !!MF.ghosts[0].data, d1: !!MF.ghosts[1].data }));
+    ok(both.me === "tom" && both.fam === "oscar" && both.d0 && both.d1, "Tom court avec son fantome ET celui du champion Oscar", both);
+    await ev(() => { MF.debug.key("up", true); MF.debug.advance(8); });
+    const l0 = await ev(() => document.getElementById("hud-ghost").textContent), l1 = await ev(() => document.getElementById("hud-ghost2").textContent);
+    ok(/^TOI : \d+ m (devant|derri)/.test(l0) && /^OSCAR \(50,0 s\) : \d+ m/.test(l1), "deux lignes d'ecart dans le HUD", [l0, l1]);
+    ok(await ev(() => MF.ghosts[0].obj.visible || MF.ghosts[1].obj.visible), "les silhouettes holographiques sont dans la scene");
+    await ev((g) => { save.rec = { college: { tom: { 0: { time: 55, score: 4000 } } } }; save.ghosts = { "college|tom|0": g }; }, mk(55, -2));
+    await fresh(true, 2);
+    ok(await ev(() => MF.ghosts[0].data !== null && MF.ghosts[1].data === null), "champion = toi : un seul fantome (pas de doublon)");
+    await ev(() => { document.getElementById("btn-ghosts").click(); });
+    ok(await ev(() => save.ghostMode === "me" && /TOI/.test(document.getElementById("btn-ghosts").textContent)), "le bouton FANTOMES du menu change de reglage", await ev(() => save.ghostMode));
+    for (let i = 0; i < 3; i++) await ev(() => document.getElementById("btn-ghosts").click());
+    ok(await ev(() => save.ghostMode === "both"), "les quatre reglages tournent en boucle (les deux / toi / famille / aucun)");
+    ok(await ev(() => MF.online.up === false && document.getElementById("online-status").classList.contains("hidden")), "sans serveur PHP : mode hors-ligne, aucune pastille");
+    await ev(() => { MF.debug.key("up", false); save.rec = {}; save.ghosts = {}; save.ghostMode = "both"; });
   });
   await test("Nitro : jauge limitee, regeneration", async () => {
     await fresh(true);

@@ -1,3 +1,8 @@
 node_modules/
 *.log
 .DS_Store
+
+# donnees du serveur de records (api/data) : jamais versionnees
+api/data/*.json
+api/data/*.tmp*
+api/data/.lock

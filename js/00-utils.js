@@ -191,7 +191,8 @@ let save = {
   stars: {},              // etoiles : stars[pilote][niveau] = [bool, bool, bool]
   wins: {},               // victoires par niveau (deblocage)
   ghosts: {},             // fantome du record : ghosts[mode|pilote|aide] = { t, d:[x,y,z,...] }
-  clip: false             // enregistrement video des courses
+  clip: false,            // enregistrement video des courses
+  ghostMode: "both"       // fantomes affiches : "both" (toi + champion de la famille), "me", "family" ou "off"
 };
 try {
   const raw = localStorage.getItem(SAVE_KEY);

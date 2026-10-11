@@ -45,7 +45,7 @@
       </div>
       <div class="clock-sub"><span id="hud-dist">2000 m</span><span id="hud-mode">CAP SUR LE COLLÈGE</span></div>
     </div>
-    <div class="hud-btns hud-spacer"><div class="hud-score" id="hud-score-box"><span>SCORE</span><b id="hud-score">0</b><i id="hud-combo"></i><em id="hud-ghost"></em></div></div>
+    <div class="hud-btns hud-spacer"><div class="hud-score" id="hud-score-box"><span>SCORE</span><b id="hud-score">0</b><i id="hud-combo"></i><em id="hud-ghost"></em><em id="hud-ghost2"></em></div></div>
   </div>
 
   <!-- bas gauche : vitesse + nitro -->
@@ -134,7 +134,7 @@
   <div class="menu-wrap">
     <div class="menu-head">
       <h2>MENU PRINCIPAL</h2>
-      <p>Prêt &middot; Feu &middot; Partez</p>
+      <p>Prêt &middot; Feu &middot; Partez <span id="online-status" class="online-chip hidden" title="Les records et les fantômes sont partagés avec toute la famille">&#9729; en ligne</span></p>
     </div>
     <div class="menu-panel">
       <button id="btn-new" class="btn btn-block" type="button">DÉBUTER PARTIE</button>
@@ -154,6 +154,7 @@
       <button id="btn-quality" class="link-btn" type="button">GRAPHISMES : <b>AUTO</b></button>
       <button id="btn-engine" class="link-btn" type="button">MOTEUR : <b>DOUX</b></button>
       <button id="btn-clipopt" class="link-btn" type="button">CLIP VIDÉO : <b>NON</b></button>
+      <button id="btn-ghosts" class="link-btn" type="button" title="Fantômes rejoués pendant la course : le tien et celui du champion de la famille">FANTÔMES : <b>LES DEUX</b></button>
     </div>
     <div class="menu-foot menu-foot-2">
       <span class="hint-keys">Flèches / ZQSD · Espace saut · Suppr (ou Maj) nitro · E pouvoir · en l'air : Espace + ◀ ▶ = figure</span>
@@ -249,6 +250,7 @@
     <div class="end-title" id="end-title">RETARD</div>
     <p class="end-desc" id="end-desc"></p>
     <div id="end-new-rec" class="end-new hidden">NOUVEAU RECORD</div>
+    <div id="end-online" class="end-online hidden">☁ ENREGISTRÉ EN LIGNE</div>
     <div class="end-stats">
       <div class="end-stat time"><b id="end-stat-1">--</b><span>temps (chrono réel)</span></div>
       <div class="end-stat"><b id="end-stat-2">--</b><span>intégrité moto</span></div>
@@ -291,6 +293,7 @@
 <script src="js/42-pilots.js"></script>
 <script src="js/43-progress.js"></script>
 <script src="js/44-media.js"></script>
+<script src="js/45-online.js"></script>
 <script src="js/40-gameplay.js"></script>
 <script src="js/99-hooks.js"></script>
 </body>
