@@ -3,6 +3,7 @@
 const APP = { HOME: "HOME", MENU: "MENU", COUNTDOWN: "COUNTDOWN", RACE: "RACE", PAUSE: "PAUSE", WIN: "WIN", LOSE: "LOSE" };
 let app = APP.HOME;
 let modal = null;
+let gateUp = true;         // ecran d'entree : tant qu'il est la, rien n'est jouable (et la musique attend le clic)
 const screens = {
   home: $("screen-home"), menu: $("screen-menu"), pause: $("screen-pause"), end: $("screen-end")
 };
@@ -56,6 +57,20 @@ function refreshMenuInfo() {
 }
 function refreshMuteBtn() { const b = $("btn-mute"); b.classList.toggle("muted", !!save.muted); b.title = save.muted ? "Son coupé (M)" : "Son activé (M)"; }
 
+// Ecran d'entree : le clic (ou Entree / Espace) debloque le son du navigateur, lance la musique d'accueil
+// et fait glisser l'ecran vers l'accueil.
+function enterGate() {
+  if (!gateUp) return;
+  gateUp = false;
+  audio.init(); audio.resume(); audio.uiBig();
+  music.start("menu"); music.unlock();
+  const g = $("screen-gate");
+  g.classList.add("leaving");
+  setTimeout(() => g.classList.add("hidden"), 700);
+  screens.home.classList.remove("enter"); void screens.home.offsetWidth; screens.home.classList.add("enter");
+}
+$("btn-enter").addEventListener("click", enterGate);
+
 /* ------------------------------ 5. ENTREES ------------------------------- */
 const input = { up: false, down: false, left: false, right: false, nitro: false, jumpQueued: false, jumpHeld: false, powerQueued: false };
 const KEYMAP = {
@@ -66,6 +81,10 @@ const KEYMAP = {
   ShiftLeft: "nitro", ShiftRight: "nitro"
 };
 window.addEventListener("keydown", (e) => {
+  if (gateUp) {                                    // ecran d'entree : seule la touche Entree / Espace compte, une fois tout charge
+    if ((e.code === "Enter" || e.code === "Space") && typeof bootDone !== "undefined" && bootDone) { e.preventDefault(); enterGate(); }
+    return;
+  }
   if (e.repeat) {
     if (KEYMAP[e.code]) { input[KEYMAP[e.code]] = true; e.preventDefault(); }
     return;
