@@ -51,7 +51,7 @@ function renderModes() {
     b.type = "button";
     b.className = "mode-chip" + (on ? " on" : "") + (locked ? " locked" : "");
     b.innerHTML = "<b>" + label + "</b><small>" + sub + "</small>";
-    if (!locked) b.addEventListener("click", () => { fn(); audio.ui(); renderPilots(); });
+    if (!locked) b.addEventListener("click", () => { fn(); audio.ui(); renderPilots(); onlineSync(modeKey()); });
     box.appendChild(b);
   };
   LEVELS.forEach((L, i) => {
@@ -103,6 +103,7 @@ function selectPilot(i) {
   buildPlayer(); player.root.position.set(player.x, 0, player.z); player.root.visible = true;
 }
 function openPilotSelect() {
+  onlineSync(modeKey());                  // records de la famille (si en ligne) : a jour quand on choisit son pilote
   renderPilots();
   openModal("modal-pilot");
 }

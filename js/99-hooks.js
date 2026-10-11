@@ -8,6 +8,8 @@ window.MF = {
   get player() { return player; },
   get dad() { return dad; },
   get ents() { return ents; },
+  get online() { return ONLINE; },
+  get ghosts() { return GHOSTS; },
   PILOTS: PILOTS,
   startRace: startRace,
   debug: {

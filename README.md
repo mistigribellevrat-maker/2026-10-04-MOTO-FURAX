@@ -28,7 +28,7 @@ Dans l'écran de choix du pilote : **AIDE : AUCUNE / UN PEU / BEAUCOUP**. Police
 - **Temps = chrono réel de la course**, au dixième. Les cafés ajoutent du temps au compte à rebours mais **ne changent jamais le record**, ni le score.
 - Records **par pilote**, plus le **record de la famille**.
 - **3 défis par niveau** (étoiles). Les étoiles de chaque pilote débloquent deux motos (PROTO 500 à 3 ★, FUSÉE DE POCHE à 6 ★).
-- **Fantôme** : une moto translucide rejoue le record du pilote ; le HUD indique l'écart en mètres.
+- **Deux fantômes** : une silhouette holographique **cyan « TOI »** rejoue ton record avec ce pilote, et une silhouette **à la couleur du champion** rejoue le record de la famille (tous pilotes confondus), avec son prénom et son temps au-dessus. Le HUD donne les deux écarts en mètres (« OSCAR (44,0 s) : 3 m devant »). Si tu es toi-même le champion, un seul fantôme est affiché. Réglage dans le menu : **FANTÔMES : LES DEUX / TOI / FAMILLE / AUCUN**.
 - **Défi du jour** : même parcours et mêmes surprises pour tout le monde ce jour-là.
 
 ## Niveaux
@@ -54,6 +54,26 @@ Dans l'écran de choix du pilote : **AIDE : AUCUNE / UN PEU / BEAUCOUP**. Police
 ## Voix
 
 Dépose tes propres enregistrements dans `assets/voix/` (voir `assets/voix/A_LIRE.txt`) : le haut-parleur de la police qui crie le prénom de chaque enfant, la copine, le principal, le cri de victoire.
+
+## Mise en ligne sur OVH (hébergement mutualisé) : records et fantômes partagés
+
+Sans serveur, le jeu garde tout dans le navigateur de chaque appareil. Avec le petit serveur PHP du dossier `api/`, **les records et les fantômes sont partagés entre tous les appareils de la famille** : le champion de la famille est le même sur le PC, la tablette et le téléphone.
+
+1. **Envoie tout le dossier du jeu par FTP** dans `www/` (ou un sous-dossier), `api/` compris. Rien à installer, pas de base de données (PHP 7.4 ou plus, ce que fournit OVH).
+2. **Vérifie le serveur** : ouvre `https://ton-site.fr/api/ghosts.php?a=ping`. Tu dois voir `{"ok":true, ... "writable":true ...}`. Si `writable` vaut `false`, donne les droits d'écriture au dossier `api/` (755, ou 705 selon l'hébergement) dans ton gestionnaire FTP : PHP y crée tout seul le dossier `api/data/`.
+3. **(Facultatif) Code famille** : dans `api/config.php`, remplace `define('MF_FAMILY_CODE', '');` par un mot de passe. Seuls ceux qui le connaissent peuvent enregistrer un record en ligne ; le jeu le demande une fois par appareil, puis s'en souvient. La lecture reste libre.
+4. **Joue** : une pastille « ☁ en ligne » apparaît dans le menu. Les records déjà gagnés sur un appareil sont envoyés au serveur automatiquement, avec leur fantôme.
+
+Comment ça marche :
+- À la fin d'une course gagnée, si le temps ou le score bat le record connu, le jeu envoie le record et le fantôme ; le serveur ne garde que le meilleur (par niveau, pilote et niveau d'aide). L'écran de fin affiche « ☁ enregistré en ligne ».
+- Au départ d'une course, le fantôme du champion est téléchargé (quelques Ko) pendant le compte à rebours.
+- **Sans serveur** (double-clic sur `index.html`, hors-ligne, serveur en panne), rien ne change : tout reste dans le navigateur, sans message d'erreur.
+
+Sécurité et entretien :
+- `api/data/` est protégé par un `.htaccess` : personne ne peut lire les fichiers directement. Les données sont des fichiers JSON : pour **sauvegarder**, télécharge ce dossier ; pour **tout remettre à zéro**, supprime les fichiers `records_*.json` et `ghost_*.json`.
+- Le serveur ne fait confiance à rien : noms validés, tailles limitées, un fantôme doit rester sur la route, avancer à une vitesse plausible, durer le temps annoncé et arriver au collège ; un envoi toutes les 1,5 s par adresse au maximum. Il n'y a pas de comptes : quelqu'un qui connaît l'adresse de l'API pourrait inventer un fantôme plausible. Pour un jeu privé, utilise le code famille.
+- Les fantômes et records du défi du jour sont effacés au bout de 4 jours.
+- Mets le site en **HTTPS** (gratuit chez OVH) : c'est ce qu'attendent les navigateurs pour le son et les envois.
 
 ## Lancer le jeu
 
@@ -122,21 +142,31 @@ js/
   40-gameplay.js      physique, collisions, poursuite, caméra, HUD, boucle principale
   41-gamefeel.js      hit-stop, secousses, post-traitement réactif, animations
   42-pilots.js        choix du pilote (photos, niveau, aide) et pouvoirs spéciaux
-  43-progress.js      records par pilote, record de la famille, défis/étoiles, fantôme, écran de fin
+  43-progress.js      records par pilote, record de la famille, défis/étoiles, deux fantômes, écran de fin
   44-media.js         clip vidéo de la course, mode photo
+  45-online.js        client du serveur de records (synchro, envoi, fantôme du champion) avec repli hors-ligne
   99-hooks.js         `window.MF` : accès pour les tests
-tests/acceptance.js   recette automatisée (voir ci-dessous)
+api/
+  ghosts.php          serveur de records et de fantômes (PHP, fichiers JSON dans api/data/)
+  config.php          réglages : code famille, dossier de données
+tests/
+  acceptance.js       recette automatisée du jeu (navigateur)
+  api.js              test du serveur PHP (vrai `php -S`)
+  online.js           test bout en bout : plusieurs « appareils » + serveur PHP
 ```
 
 ## Tests automatisés
 
-La recette vérifie le cahier des charges dans un vrai navigateur (états, pilotage, collisions en hauteur, poursuite du père, fin de partie, pause, redimensionnement, lancement `file://`) :
+La recette vérifie le cahier des charges dans un vrai navigateur (états, pilotage, collisions en hauteur, poursuite de la police, fin de partie, pause, redimensionnement, lancement `file://`) :
 
 ```
 cd tests
 npm install        # installe Playwright (une seule fois)
 npx playwright install chromium
-npm test
+npm test           # recette du jeu (170+ vérifications)
+npm run test:api   # serveur PHP (vrai `php -S`, nécessite PHP en ligne de commande)
+npm run test:online  # bout en bout : plusieurs « appareils » + serveur PHP
+npm run test:all   # les trois
 ```
 
 ## Crédits

@@ -993,6 +993,10 @@ function setupUI() {
     RENDER.setUserLevel(QL[i]); save.quality = QL[i]; persistSave(); audio.ui(); refreshQ();
   });
   refreshQ();
+  const GM = ["both", "me", "family", "off"], GMN = { both: "LES DEUX", me: "TOI", family: "FAMILLE", off: "AUCUN" };
+  const refreshG = () => { $("btn-ghosts").innerHTML = "FANTÔMES : <b>" + (GMN[save.ghostMode] || "LES DEUX") + "</b>"; };
+  $("btn-ghosts").addEventListener("click", () => { save.ghostMode = GM[(GM.indexOf(save.ghostMode) + 1) % GM.length]; persistSave(); audio.ui(); refreshG(); });
+  refreshG();
   $("btn-shop-close").addEventListener("click", closeModal);
   $("btn-load-close").addEventListener("click", closeModal);
   $("btn-load-confirm").addEventListener("click", startRace);
@@ -1055,7 +1059,7 @@ function init() {
     .concat([
       ["Bâtiments", buildBuildingPrefabs], ["Mobilier urbain", buildProps], ["Textures", buildSignTextures],
       ["Ciel et lumière", buildSky], ["Effets", buildParticles], ["Ville", buildWorld], ["Poursuivant", buildDad],
-      ["Interface", () => { setupUI(); onResize(); }]
+      ["Interface", () => { setupUI(); onResize(); onlineStart(); }]
     ]);
   const ldFill = $("ld-fill"), ldText = $("ld-text"), ld = $("loading");
   let si = 0;

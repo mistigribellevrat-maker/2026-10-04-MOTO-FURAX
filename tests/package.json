@@ -3,6 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "description": "Recette automatisée de MOTO FURAX",
-  "scripts": { "test": "node acceptance.js" },
-  "devDependencies": { "playwright": "^1.56.0" }
+  "scripts": {
+    "test": "node acceptance.js",
+    "test:api": "node api.js",
+    "test:online": "node online.js",
+    "test:all": "node acceptance.js && node api.js && node online.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.0"
+  }
 }

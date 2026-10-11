@@ -570,3 +570,11 @@ body.photo-mode #hud,body.photo-mode #screen-pause{display:none!important}
 .btn-gate .eq i{transform-origin:bottom}
 .gate-hint{margin-top:18px;font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;color:#b89a80;animation:blink 2.2s infinite}
 @media (max-width:640px){.btn-gate{padding:18px 44px 18px 36px}}
+
+
+/* ---------- En ligne : pastille, fantomes, confirmation d'envoi ---------- */
+.online-chip{display:inline-block;margin-left:.8em;padding:2px 10px;border-radius:999px;border:1px solid rgba(61,220,132,.6);background:rgba(61,220,132,.12);color:var(--green);
+  font-family:var(--font-d);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;vertical-align:middle}
+#hud-ghost2{white-space:nowrap}
+.hud-score em{white-space:nowrap}
+.end-online{font-family:var(--font-d);font-size:.62rem;letter-spacing:.2em;color:var(--green);margin:-6px 0 12px}
