@@ -27,6 +27,8 @@ function setApp(next) {
   if (prev === APP.PAUSE && next === APP.RACE) audio.resume();
   // musique : le morceau d'accueil continue dans le menu, celui de la course demarre au compte a rebours,
   // attenue en pause, fondu a la fin (la fanfare / le gong prennent la suite)
+  // bruits de moto : coupes partout ou la moto ne roule pas (sinon le dernier ronflement reste fige : arrivee, menu, pause)
+  if (next === APP.HOME || next === APP.MENU || next === APP.PAUSE || next === APP.WIN || next === APP.LOSE) audio.engineOff();
   if (next === APP.HOME || next === APP.MENU) music.start("menu");
   else if (next === APP.COUNTDOWN || next === APP.RACE) { music.start("race"); music.setDuck(false); }
   else if (next === APP.PAUSE) music.setDuck(true);
@@ -78,6 +80,7 @@ const KEYMAP = {
   ArrowDown: "down", KeyS: "down",
   ArrowLeft: "left", KeyA: "left", KeyQ: "left",
   ArrowRight: "right", KeyD: "right",
+  Delete: "nitro",                                   // Suppr : sous la main droite, au-dessus des fleches
   ShiftLeft: "nitro", ShiftRight: "nitro"
 };
 window.addEventListener("keydown", (e) => {

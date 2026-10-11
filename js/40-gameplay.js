@@ -157,8 +157,7 @@ function pauseRace() {
   if (app !== APP.RACE) return;
   audio.ui();
   audio.setSiren(0, 0.05);
-  audio.setNitro(false);
-  audio.setEngine(0, 0, 0);
+  audio.engineOff();
   input.up = input.down = input.left = input.right = input.nitro = false;
   clipPause(true);
   setApp(APP.PAUSE);
@@ -335,7 +334,9 @@ function updatePlayer(dt, st) {
   audio.setEngine(player.speed / vMax, throttle, dt);
 
   const top = nitroActive ? nitroTop() : vMax;
-  player.speed = clamp(player.speed, 0, top);
+  // la fin de la nitro (ou de la nitro vide) ne claque plus la vitesse d'un coup : retombee douce en ~0,4 s
+  if (player.speed > top) player.speed = Math.max(top, player.speed - 45 * dt);
+  player.speed = Math.max(0, player.speed);
   if (player.stun > 0) player.stun -= dt;
   if (player.slip > 0) player.slip -= dt;
 
@@ -837,6 +838,9 @@ function updateEndSeq(dt) {
   player.wheels.forEach((w) => { w.rotation.x = player.wheelSpin; });
   if (sq.win) player.rider.rotation.x = damp(player.rider.rotation.x, -0.1, 3, dt);
   addShake(sq.win ? 0.02 : 0.06);
+  // le moteur retombe avec la vitesse de la moto (plus de gaz, plus de nitro) ; une moto HS se tait tout de suite
+  if (sq.reason === "moto") audio.engineOff();
+  else { audio.setNitro(false); audio.setEngine(player.speed / topSpeed(), 0, dt); }
   updateDadEntity(dt * slow, st);
   if (sq.t > (sq.win ? 2.3 : 1.6)) {
     sq.shown = true;

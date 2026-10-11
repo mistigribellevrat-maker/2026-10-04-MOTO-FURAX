@@ -68,7 +68,7 @@ Navigateur récent conseillé : Chrome, Edge, Firefox (WebGL 2).
 | Freiner (prioritaire sur l'accélérateur) | ↓ / S | FREIN |
 | Gauche / droite | ← → / Q D / A D | ◀ ▶ |
 | Sauter | Espace | SAUT |
-| Nitro | Maj | NITRO |
+| Nitro | Suppr (ou Maj) | NITRO |
 | Pouvoir du pilote | E (ou F) | POUVOIR |
 | Figure en l'air | Espace maintenu + ← → | SAUT maintenu + ◀ ▶ |
 | Pause | Échap ou P | bouton ⏸ |
