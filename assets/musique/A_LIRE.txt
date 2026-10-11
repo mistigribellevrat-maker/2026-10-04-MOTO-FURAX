@@ -6,4 +6,5 @@ MUSIQUES DU JEU
 Pour changer de musique : remplace simplement le fichier (même nom), ou modifie
 CFG.MUSIC dans js/00-utils.js. Si un fichier est absent, le jeu utilise une
 musique de secours générée par le code.
-La musique démarre au premier clic / à la première touche (règle des navigateurs).
+La musique démarre quand on appuie sur le bouton ENTRER de l'écran d'entrée (règle des navigateurs :
+pas de son sans clic).

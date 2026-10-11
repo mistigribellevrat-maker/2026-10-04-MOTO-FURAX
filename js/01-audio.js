@@ -163,6 +163,16 @@ class SoundEngine {
     if (this.ok) this.engBus.gain.setTargetAtTime(SoundEngine.ENGINE_VOL[mode], this.ctx.currentTime, 0.1);
   }
   setNitro(on) { this._nitro = on; }
+  // coupe moteur, vent, derapage et souffle de nitro (arrivee, pause, menu) : sans appel, ils restent figes au dernier niveau
+  engineOff() {
+    this._nitro = false;
+    if (!this.ok) return;
+    const t = this.ctx.currentTime;
+    this.engGain.gain.setTargetAtTime(0, t, 0.12);
+    this.windGain.gain.setTargetAtTime(0, t, 0.12);
+    this.skidGain.gain.setTargetAtTime(0, t, 0.05);
+    this.nitroGain.gain.setTargetAtTime(0, t, 0.06);
+  }
   setSiren(intensity, dt) {
     if (!this.ok) return;
     this.sirenTime += dt;

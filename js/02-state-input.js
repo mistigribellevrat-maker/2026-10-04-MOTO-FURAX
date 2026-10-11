@@ -3,6 +3,7 @@
 const APP = { HOME: "HOME", MENU: "MENU", COUNTDOWN: "COUNTDOWN", RACE: "RACE", PAUSE: "PAUSE", WIN: "WIN", LOSE: "LOSE" };
 let app = APP.HOME;
 let modal = null;
+let gateUp = true;         // ecran d'entree : tant qu'il est la, rien n'est jouable (et la musique attend le clic)
 const screens = {
   home: $("screen-home"), menu: $("screen-menu"), pause: $("screen-pause"), end: $("screen-end")
 };
@@ -26,6 +27,8 @@ function setApp(next) {
   if (prev === APP.PAUSE && next === APP.RACE) audio.resume();
   // musique : le morceau d'accueil continue dans le menu, celui de la course demarre au compte a rebours,
   // attenue en pause, fondu a la fin (la fanfare / le gong prennent la suite)
+  // bruits de moto : coupes partout ou la moto ne roule pas (sinon le dernier ronflement reste fige : arrivee, menu, pause)
+  if (next === APP.HOME || next === APP.MENU || next === APP.PAUSE || next === APP.WIN || next === APP.LOSE) audio.engineOff();
   if (next === APP.HOME || next === APP.MENU) music.start("menu");
   else if (next === APP.COUNTDOWN || next === APP.RACE) { music.start("race"); music.setDuck(false); }
   else if (next === APP.PAUSE) music.setDuck(true);
@@ -56,6 +59,20 @@ function refreshMenuInfo() {
 }
 function refreshMuteBtn() { const b = $("btn-mute"); b.classList.toggle("muted", !!save.muted); b.title = save.muted ? "Son coupé (M)" : "Son activé (M)"; }
 
+// Ecran d'entree : le clic (ou Entree / Espace) debloque le son du navigateur, lance la musique d'accueil
+// et fait glisser l'ecran vers l'accueil.
+function enterGate() {
+  if (!gateUp) return;
+  gateUp = false;
+  audio.init(); audio.resume(); audio.uiBig();
+  music.start("menu"); music.unlock();
+  const g = $("screen-gate");
+  g.classList.add("leaving");
+  setTimeout(() => g.classList.add("hidden"), 700);
+  screens.home.classList.remove("enter"); void screens.home.offsetWidth; screens.home.classList.add("enter");
+}
+$("btn-enter").addEventListener("click", enterGate);
+
 /* ------------------------------ 5. ENTREES ------------------------------- */
 const input = { up: false, down: false, left: false, right: false, nitro: false, jumpQueued: false, jumpHeld: false, powerQueued: false };
 const KEYMAP = {
@@ -63,9 +80,14 @@ const KEYMAP = {
   ArrowDown: "down", KeyS: "down",
   ArrowLeft: "left", KeyA: "left", KeyQ: "left",
   ArrowRight: "right", KeyD: "right",
+  Delete: "nitro",                                   // Suppr : sous la main droite, au-dessus des fleches
   ShiftLeft: "nitro", ShiftRight: "nitro"
 };
 window.addEventListener("keydown", (e) => {
+  if (gateUp) {                                    // ecran d'entree : seule la touche Entree / Espace compte, une fois tout charge
+    if ((e.code === "Enter" || e.code === "Space") && typeof bootDone !== "undefined" && bootDone) { e.preventDefault(); enterGate(); }
+    return;
+  }
   if (e.repeat) {
     if (KEYMAP[e.code]) { input[KEYMAP[e.code]] = true; e.preventDefault(); }
     return;

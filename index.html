@@ -61,7 +61,7 @@
       <path class="arc-nitro" id="hud-nitro-arc" pathLength="100" d="M 62 160 A 66 66 0 1 1 158 160"/>
     </svg>
     <div class="spd-read"><span id="hud-speed">0</span><small>KM/H</small></div>
-    <div class="nitro-read" id="hud-nitro-box"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg><b id="hud-nitro-pct">100</b><span>NITRO · MAJ</span></div>
+    <div class="nitro-read" id="hud-nitro-box"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg><b id="hud-nitro-pct">100</b><span>NITRO · SUPPR</span></div>
     <i id="hud-nitro" class="hidden"></i>
     <div class="power-read" id="hud-power"><div class="pw-fill" id="hud-power-fill"></div><b id="hud-power-name">POUVOIR</b><span>E</span></div>
   </div>
@@ -96,6 +96,19 @@
       <button class="mc-btn mc-nitro" data-k="nitro" type="button">NITRO</button>
       <button class="mc-btn mc-power" data-k="power" type="button">POUVOIR</button>
     </div>
+  </div>
+</div>
+
+<!-- ============================ ENTREE ============================ -->
+<!-- Les navigateurs interdisent de lancer un son sans clic : ce bouton debloque la musique de l'accueil. -->
+<div id="screen-gate" class="screen">
+  <div class="gate-bg"></div>
+  <div class="gate-inner">
+    <div class="logo-kicker">Course urbaine &middot; 8h55 &middot; dernier avertissement</div>
+    <h1 class="game-title"><span class="t-motor">MOTO</span><span class="t-furax">FURAX</span></h1>
+    <div class="gate-slogan">Friends &middot; Speed &middot; No limits</div>
+    <button id="btn-enter" class="btn btn-xl btn-gate" type="button"><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>ENTRER</button>
+    <p class="gate-hint">Monte le son &middot; Entrée ou Espace</p>
   </div>
 </div>
 
@@ -143,7 +156,7 @@
       <button id="btn-clipopt" class="link-btn" type="button">CLIP VIDÉO : <b>NON</b></button>
     </div>
     <div class="menu-foot menu-foot-2">
-      <span class="hint-keys">Flèches / ZQSD · Espace saut · Maj nitro · E pouvoir · en l'air : Espace + ◀ ▶ = figure</span>
+      <span class="hint-keys">Flèches / ZQSD · Espace saut · Suppr (ou Maj) nitro · E pouvoir · en l'air : Espace + ◀ ▶ = figure</span>
     </div>
   </div>
 </div>

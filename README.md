@@ -68,7 +68,7 @@ Navigateur récent conseillé : Chrome, Edge, Firefox (WebGL 2).
 | Freiner (prioritaire sur l'accélérateur) | ↓ / S | FREIN |
 | Gauche / droite | ← → / Q D / A D | ◀ ▶ |
 | Sauter | Espace | SAUT |
-| Nitro | Maj | NITRO |
+| Nitro | Suppr (ou Maj) | NITRO |
 | Pouvoir du pilote | E (ou F) | POUVOIR |
 | Figure en l'air | Espace maintenu + ← → | SAUT maintenu + ◀ ▶ |
 | Pause | Échap ou P | bouton ⏸ |
@@ -82,7 +82,7 @@ Deux morceaux dans `assets/musique/` (voir `assets/musique/A_LIRE.txt`) :
 - `musique_accueil_menu.mp3` : écran d'accueil et menu principal ;
 - `musique_en_jeu.mp3` : pendant la course (fondu enchaîné au départ, atténuée en pause, coupée à l'arrivée).
 
-Elles démarrent au premier clic ou à la première touche (règle des navigateurs). Si un fichier manque, une musique de secours générée par le code prend le relais.
+Les navigateurs interdisent de lancer un son sans clic : un **écran d'entrée** (bouton stylisé **ENTRER**, ou touche Entrée / Espace) précède l'accueil. Ce clic débloque le son, et la musique d'accueil démarre dès l'arrivée sur l'accueil. Si un fichier manque, une musique de secours générée par le code prend le relais.
 
 ## Images à fournir (affiche et visages)
 

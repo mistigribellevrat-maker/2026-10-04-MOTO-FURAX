@@ -37,6 +37,13 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   const base = "http://localhost:" + port + "/index.html?quality=low&auto=0&manual=1";
   const browser = await pw.chromium.launch({ args: ["--use-angle=swiftshader", "--use-gl=angle", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  // Simule la regle des navigateurs : aucune lecture audio / video tant que l'utilisateur n'a pas clique ou tape
+  await page.addInitScript(() => {
+    let gesture = false;
+    ["pointerdown", "keydown", "touchstart"].forEach((ev) => window.addEventListener(ev, (e) => { if (e.isTrusted) gesture = true; }, true));
+    const orig = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () { return gesture ? orig.call(this) : Promise.reject(new DOMException("blocked", "NotAllowedError")); };
+  });
   const errors = [];
   page.on("pageerror", (e) => errors.push("PAGEERROR " + e.message));
   page.on("console", (m) => { if (m.type() === "error" && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
@@ -82,6 +89,20 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
       ok(st === 200, "fichier musique present : " + u, st);
     }
     ok(await ev(() => music.want === "menu"), "la musique d'accueil / menu est demandee des l'accueil", await ev(() => music.want));
+  });
+  await test("Ecran d'entree : bouton stylise, la musique demarre au clic", async () => {
+    ok(await ev(() => { const g = document.getElementById("screen-gate"), b = document.getElementById("btn-enter"); return !g.classList.contains("hidden") && b.offsetParent !== null && /ENTRER/.test(b.textContent); }), "un ecran d'entree avec un bouton ENTRER est affiche");
+    ok(await ev(() => { const e = music.files.menu; return !e || e.paused; }), "aucun son avant le clic (regle des navigateurs)");
+    await page.click("#btn-enter");
+    await page.waitForFunction(() => music.files.menu && !music.files.menu.paused && music.files.menu.currentTime > 0, null, { timeout: 10000 });
+    ok(true, "le clic lance la musique d'accueil");
+    await page.waitForFunction(() => document.getElementById("screen-gate").classList.contains("hidden"), null, { timeout: 5000 });
+    ok(await ev(() => MF.state === "HOME" && document.getElementById("btn-play").offsetParent !== null), "l'accueil apparait derriere (bouton JOUER cliquable)");
+    // Entree / Espace valident aussi l'entree, sans ouvrir le menu
+    await ev(() => { gateUp = true; document.getElementById("screen-gate").classList.remove("hidden", "leaving"); });
+    await page.keyboard.press("Space");
+    ok(await ev(() => gateUp === false && MF.state === "HOME"), "Espace valide l'entree sans lancer le menu");
+    await page.waitForFunction(() => document.getElementById("screen-gate").classList.contains("hidden"), null, { timeout: 5000 });
   });
   await test("Transitions interdites depuis l'accueil", async () => {
     await page.keyboard.press("KeyR"); await page.keyboard.press("Escape"); await page.keyboard.press("KeyP");
@@ -562,11 +583,43 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await ev(() => MF.debug.advance(1));
     await page.keyboard.down("ShiftLeft"); await ev(() => MF.debug.advance(1));
     ok(await ev(() => MF.player.speed) > 42, "Maj active la nitro (au-dela de la vitesse max)", await ev(() => MF.player.speed));
-    await page.keyboard.up("ShiftLeft"); await page.keyboard.up("KeyW");
+    await page.keyboard.up("ShiftLeft"); await ev(() => MF.debug.advance(1.2));
+    ok(await ev(() => MF.player.speed) < 43, "Maj relachee : retour a la vitesse normale", await ev(() => MF.player.speed));
+    await page.keyboard.down("Delete"); await ev(() => MF.debug.advance(1));
+    ok(await ev(() => MF.player.speed) > 42, "Suppr active la nitro (touche sous la main droite)", await ev(() => MF.player.speed));
+    await page.keyboard.up("Delete"); await page.keyboard.up("KeyW");
     const m0 = await ev(() => MF.muted === undefined ? document.getElementById("btn-mute").classList.contains("muted") : MF.muted);
     await page.keyboard.press("KeyM");
     ok((await ev(() => document.getElementById("btn-mute").classList.contains("muted"))) !== m0, "M coupe / remet le son");
     await page.keyboard.press("KeyM");
+  });
+  await test("Son : le bruit de moto se coupe a l'arrivee, en pause et au menu", async () => {
+    const lv = () => ev(() => ({ eng: +audio.engGain.gain.value.toFixed(4), wind: +audio.windGain.gain.value.toFixed(4), nit: +audio.nitroGain.gain.value.toFixed(4), ctx: audio.ctx && audio.ctx.state }));
+    await fresh(true);
+    await ev(() => { MF.debug.key("up", true); MF.debug.key("nitro", true); MF.debug.advance(3); });
+    await page.waitForTimeout(600);
+    const run = await lv();
+    ok(run.ctx === "running" && run.eng > 0.05 && run.nit > 0.02, "en course : moteur, vent et nitro se font entendre", run);
+    await ev(() => MF.debug.teleport(-(MF.CFG.TOTAL_DIST - 0.6)));
+    await ev(() => { MF.debug.advance(0.1); MF.debug.advance(3); });
+    await page.waitForTimeout(1200);
+    const end = await lv();
+    ok(await ev(() => MF.state) === "WIN" && end.eng < 0.004 && end.wind < 0.004 && end.nit < 0.004, "a l'arrivee : plus aucun bruit de moto (moteur, vent, nitro)", end);
+    await fresh(true);
+    await ev(() => { MF.debug.key("up", true); MF.debug.key("nitro", true); MF.debug.advance(3); });
+    await page.waitForTimeout(400);
+    await ev(() => document.getElementById("btn-pause").click());
+    await page.waitForTimeout(1000);
+    const ps = await lv();
+    ok(ps.eng < 0.004 && ps.wind < 0.004 && ps.nit < 0.004, "en pause : moteur coupe", ps);
+    await ev(() => { document.getElementById("btn-resume").click(); MF.debug.advance(1); });
+    await page.waitForTimeout(500);
+    ok((await lv()).eng > 0.05, "a la reprise : le moteur repart", await lv());
+    await ev(() => MF.debug.lose("time")); await ev(() => MF.debug.advance(3));
+    await page.waitForTimeout(1000);
+    const lose = await lv();
+    ok(lose.eng < 0.004 && lose.wind < 0.004, "a la defaite : moteur coupe", lose);
+    await ev(() => { MF.debug.key("up", false); MF.debug.key("nitro", false); });
   });
   await test("Nitro : jauge limitee, regeneration", async () => {
     await fresh(true);

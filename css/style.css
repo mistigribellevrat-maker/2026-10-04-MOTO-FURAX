@@ -544,3 +544,29 @@ body.photo-mode #hud,body.photo-mode #screen-pause{display:none!important}
 .mode-chip.on{border-color:var(--gold);background:rgba(255,194,74,.14);box-shadow:0 0 18px rgba(255,160,50,.3)}
 .mode-chip.on small{color:#ffe3a8}
 #modal-shop .modal-box{border-color:rgba(255,194,74,.32)}
+
+
+/* ============================================================================
+   Ecran d'entree : bouton stylise qui debloque le son (musique d'accueil)
+   ============================================================================ */
+#screen-gate{z-index:80;background:#0a0504;overflow:hidden;transition:opacity .65s ease,transform .65s ease}
+#screen-gate.leaving{opacity:0;transform:scale(1.05);pointer-events:none}
+.gate-bg{position:absolute;inset:-24px;background:url('../assets/affiche.jpg') center 30%/cover no-repeat;filter:blur(5px) brightness(.55) saturate(1.25);animation:slowzoom 26s ease-in-out infinite alternate}
+#screen-gate::after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 52%,rgba(10,5,3,.1),rgba(10,5,3,.82) 80%);pointer-events:none}
+.gate-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 18px;animation:scrIn .7s .05s cubic-bezier(.19,1,.22,1) both}
+.gate-inner .game-title{margin:24px 0 8px;text-align:center}
+.gate-inner .game-title .t-motor{font-size:clamp(3rem,10vw,7.4rem)}
+.gate-inner .game-title .t-furax{font-size:clamp(3.6rem,12.4vw,9.2rem);margin:0 auto}
+.gate-slogan{font-family:var(--font-d);font-weight:800;letter-spacing:.42em;font-size:clamp(.66rem,1.9vw,.95rem);color:var(--gold);text-transform:uppercase;margin:22px 0 34px;padding-left:.42em}
+.btn-gate{display:flex;align-items:center;gap:18px;padding:20px 76px 20px 64px;background:linear-gradient(135deg,#e02709,#ff7a1f);border-color:rgba(255,214,150,.85);color:#fff;
+  box-shadow:0 0 0 rgba(255,110,30,0),0 14px 44px rgba(224,39,9,.45);animation:gatePulse 1.7s ease-in-out infinite}
+.btn-gate:hover{background:linear-gradient(135deg,#ff4a1f,#ffb02e);color:#1a0904}
+@keyframes gatePulse{0%,100%{box-shadow:0 0 0 0 rgba(255,120,40,.55),0 14px 44px rgba(224,39,9,.45)}50%{box-shadow:0 0 0 16px rgba(255,120,40,0),0 14px 56px rgba(255,120,30,.6)}}
+.btn-gate .eq{display:flex;align-items:flex-end;gap:4px;height:1.5rem}
+.btn-gate .eq i{display:block;width:5px;border-radius:2px;background:currentColor;animation:eqBar 0.9s ease-in-out infinite}
+.btn-gate .eq i:nth-child(1){height:45%;animation-delay:-.2s}.btn-gate .eq i:nth-child(2){height:90%;animation-delay:-.55s}
+.btn-gate .eq i:nth-child(3){height:60%;animation-delay:-.35s}.btn-gate .eq i:nth-child(4){height:100%;animation-delay:-.7s}
+@keyframes eqBar{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+.btn-gate .eq i{transform-origin:bottom}
+.gate-hint{margin-top:18px;font-size:.8rem;letter-spacing:.22em;text-transform:uppercase;color:#b89a80;animation:blink 2.2s infinite}
+@media (max-width:640px){.btn-gate{padding:18px 44px 18px 36px}}
