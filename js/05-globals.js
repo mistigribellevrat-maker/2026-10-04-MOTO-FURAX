@@ -38,7 +38,7 @@ const ownMat = (m) => { m.userData.own = true; return m; };
 
 // Panneaux de manifestation (canvas)
 function buildSignTextures() {
-  TEX.protestSigns = ["NON AUX DEVOIRS", "LA SÉCHERIE EST UN MÉTIER", "RENDS L'ARGENT", "ON VEUT DES PISCINES", "TOUT DE SUITE !", "COLLÈGE MOLIÈRE = MOLLO"].map((t) => canvasTex(256, 160, (x, w, h) => {
+  TEX.protestSigns = ["NON AUX DEVOIRS", "LA SÉCHERIE EST UN MÉTIER", "RENDS L'ARGENT", "ON VEUT DES PISCINES", "TOUT DE SUITE !", "SAINT CHARLES : PRIEZ POUR NOUS"].map((t) => canvasTex(256, 160, (x, w, h) => {
     x.fillStyle = "#f4efe4"; x.fillRect(0, 0, w, h);
     x.fillStyle = "#c8342a"; x.fillRect(0, 0, w, 14); x.fillRect(0, h - 14, w, 14);
     x.fillStyle = "#20242c"; x.font = "700 40px Rajdhani, Arial Narrow, Arial"; x.textAlign = "center";

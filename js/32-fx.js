@@ -307,7 +307,7 @@ function flashGlow(x, y, z, r, g, b, size, glow) {
 let dustAcc = 0, windAcc = 0;
 function ambientFx(dt, spd, focusX, focusZ) {
   // poussiere lumineuse dans le rayon de soleil
-  dustAcc += dt * 14;
+  dustAcc += dt * 22;
   while (dustAcc > 1) {
     dustAcc -= 1;
     fxDust.emit(focusX + rnd(-13, 13), rnd(0.8, 9), focusZ - rnd(4, 55), rnd(-0.2, 0.2), rnd(-0.05, 0.25), rnd(-0.3, 0.3), {

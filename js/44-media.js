@@ -4,7 +4,7 @@
    - Clip : si l'option est activee (menu > CLIP VIDEO), la course est filmee (image 3D + chrono,
      vitesse, pilote et score incrustes) ; bouton TELECHARGER LE CLIP sur l'ecran de fin.
    - Mode photo (depuis la pause) : camera libre autour de la moto, filtres, flou d'arriere-plan,
-     photo PNG en pleine resolution avec la signature MOTOR FURAX.
+     photo PNG en pleine resolution avec la signature MOTO FURAX.
    ============================================================================ */
 const CLIP = { rec: null, chunks: [], blob: null, mime: "", cv: null, ctx: null };
 const clipSupported = () => !!(window.MediaRecorder && document.createElement("canvas").captureStream);
@@ -41,7 +41,7 @@ function clipStop() {
 function clipDiscard() { clipStop(); CLIP.blob = null; const b = $("btn-clip"); if (b) b.classList.add("hidden"); }
 function clipDownload() {
   if (!CLIP.blob) return;
-  downloadBlob(CLIP.blob, "motor-furax-" + curPilot().id + "-" + stamp() + (CLIP.mime.indexOf("mp4") >= 0 ? ".mp4" : ".webm"));
+  downloadBlob(CLIP.blob, "moto-furax-" + curPilot().id + "-" + stamp() + (CLIP.mime.indexOf("mp4") >= 0 ? ".mp4" : ".webm"));
 }
 function stamp() { const d = new Date(); return todayKey() + "-" + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0") + String(d.getSeconds()).padStart(2, "0"); }
 function downloadBlob(blob, name) {
@@ -62,7 +62,7 @@ function clipFrame() {
   c.fillStyle = "#ffffff"; c.font = "700 20px Rajdhani, Arial, sans-serif";
   c.fillText(curPilot().name + " · " + Math.round(player.speed * 2.62) + " km/h" + (st ? " · score " + (st.score + Math.floor(st.distance)) : ""), 28, 60);
   c.font = "900 22px Orbitron, Arial Black, sans-serif"; c.textAlign = "right"; c.fillStyle = "rgba(255,255,255,.8)";
-  c.fillText("MOTOR FURAX", W - 20, H - 40);
+  c.fillText("MOTO FURAX", W - 20, H - 40);
   c.restore();
 }
 
@@ -134,9 +134,9 @@ function photoAfterRender() {
   x.drawImage(src, 0, 0);
   const fs = Math.round(c.height * 0.035);
   x.font = "900 " + fs + "px Orbitron, Arial Black, sans-serif"; x.textAlign = "right"; x.textBaseline = "bottom";
-  x.fillStyle = "rgba(0,0,0,.35)"; x.fillText("MOTOR FURAX", c.width - fs * 0.8 + 2, c.height - fs * 0.6 + 2);
-  x.fillStyle = "rgba(255,255,255,.85)"; x.fillText("MOTOR FURAX", c.width - fs * 0.8, c.height - fs * 0.6);
-  c.toBlob((b) => { if (b) downloadBlob(b, "motor-furax-photo-" + stamp() + ".png"); }, "image/png");
+  x.fillStyle = "rgba(0,0,0,.35)"; x.fillText("MOTO FURAX", c.width - fs * 0.8 + 2, c.height - fs * 0.6 + 2);
+  x.fillStyle = "rgba(255,255,255,.85)"; x.fillText("MOTO FURAX", c.width - fs * 0.8, c.height - fs * 0.6);
+  c.toBlob((b) => { if (b) downloadBlob(b, "moto-furax-photo-" + stamp() + ".png"); }, "image/png");
   flash("good", 160);
   audio.beep(1500, 0.06, "square", 0.08);
 }

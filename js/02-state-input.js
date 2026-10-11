@@ -24,14 +24,12 @@ function setApp(next) {
   if (next === APP.RACE || next === APP.COUNTDOWN) { three.visible = true; }
   if (next === APP.WIN || next === APP.LOSE) { /* le fond reste la scene 3D figee */ }
   if (prev === APP.PAUSE && next === APP.RACE) audio.resume();
-  // musique : douce dans les menus, pleine pendant la course, attenuee en pause, coupee a la fin
-  if (audio.ok) {
-    if (next === APP.MENU) music.start("menu");
-    else if (next === APP.COUNTDOWN || next === APP.RACE) { music.start("race"); music.setDuck(false); }
-    else if (next === APP.PAUSE) music.setDuck(true);
-    else if (next === APP.WIN || next === APP.LOSE) music.stop(0.3);
-    else if (next === APP.HOME) music.stop(0.3);
-  }
+  // musique : le morceau d'accueil continue dans le menu, celui de la course demarre au compte a rebours,
+  // attenue en pause, fondu a la fin (la fanfare / le gong prennent la suite)
+  if (next === APP.HOME || next === APP.MENU) music.start("menu");
+  else if (next === APP.COUNTDOWN || next === APP.RACE) { music.start("race"); music.setDuck(false); }
+  else if (next === APP.PAUSE) music.setDuck(true);
+  else if (next === APP.WIN || next === APP.LOSE) music.stop(0.3);
   refreshMuteBtn();
   onAppChange(prev, next);
 }
@@ -105,6 +103,8 @@ window.addEventListener("keyup", (e) => {
   if (e.code === "Space") input.jumpHeld = false;
 });
 window.addEventListener("blur", () => { input.up = input.down = input.left = input.right = input.nitro = false; });
+// premiere interaction : les navigateurs autorisent enfin la musique (accueil)
+["pointerdown", "keydown", "touchstart"].forEach((ev) => window.addEventListener(ev, () => music.unlock(), { passive: true }));
 
 // Boutons tactiles
 document.querySelectorAll(".mc-btn").forEach((btn) => {

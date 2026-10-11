@@ -99,7 +99,7 @@ class SoundEngine {
     this.nitroGain.connect(this.masterGain);
     this.nitroSrc.start();
 
-    // --- Sirène papa ---
+    // --- Sirène de la voiture de police ---
     this.sirenOsc = this.ctx.createOscillator();
     this.sirenOsc.type = "triangle";
     this.sirenOsc.frequency.value = 700;
@@ -166,8 +166,9 @@ class SoundEngine {
   setSiren(intensity, dt) {
     if (!this.ok) return;
     this.sirenTime += dt;
-    const two = Math.sin(this.sirenTime * Math.PI * 4.4) > 0 ? 1 : 0.72;
-    this.sirenOsc.frequency.setTargetAtTime(760 * two, this.ctx.currentTime, 0.03);
+    // deux tons alternes (quarte) : le « pin-pon » de la police, une alternance toutes les 0,4 s
+    const two = Math.sin(this.sirenTime * Math.PI * 2.5) > 0 ? 1 : 0.75;
+    this.sirenOsc.frequency.setTargetAtTime(660 * two, this.ctx.currentTime, 0.03);
     this.sirenGain.gain.setTargetAtTime(intensity * 0.04, this.ctx.currentTime, 0.08);
   }
   screech() { this.noiseBurst(0.55, "bandpass", 2600, 0.16, 4); this.beep(1500, 0.4, "sawtooth", 0.03, 900); }
@@ -204,7 +205,10 @@ SoundEngine.ENGINE_VOL = { doux: 0.55, normal: 1, coupe: 0 };
 const audio = new SoundEngine();
 
 /* ============================================================================
-   MUSIQUE GENERATIVE — synthwave composee par le code (aucun fichier audio, aucun droit d'auteur).
+   MUSIQUE — deux morceaux (assets/musique/) : "menu" (accueil + menu) et "race" (en jeu).
+   Lecture par des elements <audio> (marche en double-clic, sans serveur : file://), avec fondus.
+   Si un fichier est absent ou illisible, la musique generative ci-dessous prend le relais :
+   synthwave composee par le code (aucun fichier audio, aucun droit d'auteur).
    Grille de 16 doubles-croches a 126 BPM, progression La mineur : Am - F - C - G.
    Modes : "menu" (nappes + arpege doux) et "race" (batterie, basse, arpege) ; l'intensite monte avec la nitro.
    ============================================================================ */
@@ -212,6 +216,8 @@ class MusicEngine {
   constructor(a) {
     this.a = a; this.mode = null; this.level = 1; this.timer = null; this.step = 0; this.bar = 0; this.next = 0;
     this.bpm = 126; this.duck = 1; this.ready = false; this.tension = 0;
+    // morceaux enregistres : un element <audio> par mode, volume anime par un petit minuteur (fondus)
+    this.want = null; this.duckOn = false; this.files = {}; this.bad = {}; this.cur = { menu: 0, race: 0 }; this.fileTimer = null;
     this.roots = [57, 53, 60, 55];                         // La2, Fa2, Do3, Sol2 (notes MIDI)
     this.arp = [[0, 7, 12, 15], [0, 5, 12, 17], [0, 7, 12, 16], [0, 7, 11, 14]]; // intervalles par accord
   }
@@ -230,7 +236,63 @@ class MusicEngine {
     this.ready = true;
   }
   static hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  /* ---------------------- morceaux enregistres (mp3) ---------------------- */
+  _file(mode) {
+    if (this.files[mode]) return this.files[mode];
+    const el = new Audio();
+    el.loop = true; el.preload = "auto"; el.volume = 0;
+    el.addEventListener("error", () => {
+      this.bad[mode] = true;                                   // fichier absent : musique generative a la place
+      if (this.want === mode) this._startSynth(mode);
+    });
+    el.src = CFG.MUSIC[mode];
+    this.files[mode] = el;
+    return el;
+  }
+  _fileTarget(mode) {
+    if (this.want !== mode || save.muted) return 0;
+    const base = mode === "menu" ? 0.36 : 0.3;                 // les morceaux sont masterises fort : on les place sous les bruitages
+    return base * (this.duckOn ? 0.3 : 1) * (mode === "race" && this.level > 1 ? 1.15 : 1);
+  }
+  _filePlay(mode) {
+    const el = this._file(mode);
+    if (el.paused) {
+      if (mode === "race" && this.cur.race < 0.01) { try { el.currentTime = 0; } catch (e) {} }   // chaque course repart du debut
+      const p = el.play();
+      if (p && p.catch) p.catch(() => {});                     // lecture refusee tant que rien n'a ete clique : reprise dans unlock()
+    }
+    if (!this.fileTimer) this.fileTimer = setInterval(() => this._fileTick(), 40);
+  }
+  _fileTick() {
+    for (const mode of ["menu", "race"]) {
+      const el = this.files[mode];
+      if (!el) continue;
+      const tgt = this._fileTarget(mode);
+      const k = 1 - Math.exp(-0.04 / (tgt > this.cur[mode] ? 0.35 : 0.22));      // montee douce, descente un peu plus vive
+      this.cur[mode] += (tgt - this.cur[mode]) * k;
+      if (Math.abs(tgt - this.cur[mode]) < 0.002) this.cur[mode] = tgt;
+      el.volume = clamp(this.cur[mode], 0, 1);
+      if (tgt === 0 && this.cur[mode] === 0 && !el.paused && this.want !== mode) el.pause();   // fondu fini : on arrete vraiment (muet = on laisse tourner)
+      // la tension (police tout pres, fin de chrono) accelere un peu le morceau de course (hauteur conservee)
+      const rate = mode === "race" ? 1 + 0.045 * this.tension : 1;
+      if (Math.abs(el.playbackRate - rate) > 0.003) el.playbackRate = rate;
+    }
+  }
+  // appele a la premiere interaction (clic, touche, doigt) : les navigateurs interdisent de lancer un son avant
+  unlock() {
+    if (this.want && this.files[this.want] && this.files[this.want].paused && !this.bad[this.want]) this._filePlay(this.want);
+  }
+  /* ------------------------------ interface ------------------------------ */
   start(mode) {
+    this.want = mode;
+    if (!this.bad[mode] && CFG.MUSIC && CFG.MUSIC[mode]) {
+      this._filePlay(mode);
+      this._stopSynth(0.4);
+      return;
+    }
+    this._startSynth(mode);
+  }
+  _startSynth(mode) {
     if (!this.a.ok) return;
     this._setup();
     if (this.mode === mode && this.timer) return;
@@ -244,6 +306,10 @@ class MusicEngine {
     }
   }
   stop(fade) {
+    this.want = null;                                         // les fichiers s'eteignent seuls (fondu dans _fileTick)
+    this._stopSynth(fade);
+  }
+  _stopSynth(fade) {
     if (!this.ready) return;
     const c = this.a.ctx;
     this.out.gain.setTargetAtTime(0, c.currentTime, fade || 0.25);
@@ -251,9 +317,13 @@ class MusicEngine {
     if (this.timer) { clearInterval(this.timer); this.timer = null; }
   }
   setLevel(l) { this.level = l; }
-  // 0..1 : papa tout pres ou fin de chrono -> tempo plus rapide et nappe de tension
+  // 0..1 : police tout pres ou fin de chrono -> tempo plus rapide et nappe de tension
   setTension(t) { this.tension = damp(this.tension, clamp(t, 0, 1), 1.5, 1 / 60); }
-  setDuck(on) { if (!this.ready) return; this.out.gain.setTargetAtTime(on ? 0.12 : (this.mode === "menu" ? 0.34 : 0.5), this.a.ctx.currentTime, 0.12); }
+  setDuck(on) {
+    this.duckOn = on;
+    if (!this.ready || !this.mode) return;
+    this.out.gain.setTargetAtTime(on ? 0.12 : (this.mode === "menu" ? 0.34 : 0.5), this.a.ctx.currentTime, 0.12);
+  }
   _tick() {
     const c = this.a.ctx;
     if (!c || c.state !== "running") return;

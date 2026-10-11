@@ -5,7 +5,7 @@
      ARTHUR     BELIER       : 4 s a renverser tout ce qui est bas, sans degats
      TOM        HYPER NITRO  : nitro pleine et illimitee 3 s
      YANIS      ESQUIVE      : ecart eclair, intouchable 0,6 s
-     CLOTHILDE  APPEL A PAPA : papa decroche et s'arrete 4 s
+     CLOTHILDE  BROUILLAGE RADIO : la voiture de police s'arrete 4 s
    ============================================================================ */
 const SILHOUETTE = '<svg viewBox="0 0 64 64"><circle cx="32" cy="22" r="13"/><path d="M8 62c0-14 10.7-22 24-22s24 8 24 22z"/></svg>';
 const hex = (c) => "#" + c.toString(16).padStart(6, "0");
@@ -146,7 +146,7 @@ function usePower(st) {
     showAlert("ESQUIVE !", "cyan", 700);
   } else if (P.id === "call") {
     dad.callT = 4;
-    showAlert("ALLÔ PAPA ? IL DÉCROCHE…", "cyan", 1600);
+    showAlert("RADIO BROUILLÉE ! LA POLICE S'ARRÊTE…", "cyan", 1600);
   }
   return true;
 }

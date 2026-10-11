@@ -330,7 +330,7 @@ function updatePlayer(dt, st) {
   }
   audio.setNitro(nitroActive);
   music.setLevel(nitroActive ? 2 : (player.speed > 8 ? 1 : 0));
-  // la musique monte quand papa approche et dans les 10 dernieres secondes
+  // la musique accelere legerement quand la police approche et dans les 10 dernieres secondes
   music.setTension(Math.max(clamp(1 - (dad.dist - 5) / 22, 0, 1), st.timeLeft < 10 ? 1 : 0));
   audio.setEngine(player.speed / vMax, throttle, dt);
 
@@ -459,16 +459,16 @@ function exhaustFx(dt, st) {
 
 /* -------------------------------- POURSUITE --------------------------------- */
 function updateDadEntity(dt, st) {
-  // Papa ne lache jamais : son rythme de croisiere depasse legerement TA vitesse de pointe (1,02 -> 1,06
-  // au fil de la course). A fond sans nitro, il grignote donc toujours du terrain : il faut utiliser la
-  // nitro, les tremplins et les pouvoirs pour creuser l'ecart. S'il est distance, il coupe par les petites rues.
+  // La police ne lache jamais : son rythme de croisiere depasse legerement TA vitesse de pointe (1,02 -> 1,06
+  // au fil de la course). A fond sans nitro, elle grignote donc toujours du terrain : il faut utiliser la
+  // nitro, les tremplins et les pouvoirs pour creuser l'ecart. Si elle est distancee, elle coupe par les petites rues.
   const prog = clamp(st.distance / CFG.TOTAL_DIST, 0, 1);
   let pace = topSpeed() * (lerp(CFG.DAD_PACE, CFG.DAD_PACE_END, prog) - curAid().dadPace);
   if (dad.dist > 40) pace += 3.5;
-  // lui aussi est gene par la circulation quand tu ralentis, mais beaucoup moins que toi
+  // la circulation la ralentit aussi quand tu ralentis, mais beaucoup moins que toi
   let target = clamp(Math.min(pace, player.speed * 0.8 + pace * 0.2 + 4), CFG.DAD_MIN, pace);
-  if (st.raceTime < 4) target = Math.min(target, player.speed * 0.92);   // depart : il enfile son peignoir
-  if (dad.callT > 0) { dad.callT -= dt; target = 0; }   // il decroche son telephone (pouvoir de Clothilde)
+  if (st.raceTime < 4) target = Math.min(target, player.speed * 0.92);   // depart : la police demarre un poil apres toi
+  if (dad.callT > 0) { dad.callT -= dt; target = 0; }   // radio brouillee : elle s'arrete (pouvoir de Clothilde)
   dad.speed = damp(dad.speed, target, dad.callT > 0 ? 4 : 2.4, dt);
   dad.dist += (player.speed - dad.speed) * dt;     // distance derriere la moto (m)
   dad.dist = clamp(dad.dist, 0, CFG.DAD_MAX_DIST);
@@ -478,11 +478,6 @@ function updateDadEntity(dt, st) {
   dad.root.position.set(dad.x, 0, dad.z);
   dad.root.rotation.y = damp(dad.root.rotation.y, (player.x - dad.x) * -0.06, 4, dt);
   dad.root.rotation.z = Math.sin(clockT * 9) * 0.02 * clamp(1 - dad.dist / 20, 0, 1);
-  dad.w1.rotation.x -= dad.speed * dt * 2.4;
-  dad.w2.rotation.x -= dad.speed * dt * 2.4;
-  if (dad.light) {
-    dad.light.material.emissiveIntensity = 0.5 + Math.abs(Math.sin(clockT * 7)) * 1.4;
-  }
   fatherHot = dad.dist < 22;
   setStyle($("hud-dad"), "width", ((1 - clamp(dad.dist / 50, 0, 1)) * 100) + "%");
   setText($("hud-dad-num"), dad.dist < 50 ? Math.round(dad.dist) + " m" : "LOIN");
@@ -793,7 +788,7 @@ function updateHUD(dt, st) {
   setStyle($("hud-progress"), "width", (pr * 100) + "%");
   setStyle($("mk-bike"), "left", (pr * 100) + "%");
   setStyle($("mk-dad"), "left", Math.max(0, pr * 100 - (clamp(dad.dist, 0, 55) / 55) * 9) + "%");
-  setText($("hud-mode"), dad.callT > 0 ? "PAPA AU TÉLÉPHONE" : (fatherHot ? "PAPA EST LÀ !" : "CAP SUR LE COLLÈGE"));
+  setText($("hud-mode"), dad.callT > 0 ? "RADIO BROUILLÉE" : (fatherHot ? "LA POLICE EST LÀ !" : "CAP SUR LE COLLÈGE"));
   $("hud-mode").classList.toggle("hot", fatherHot);
   const dang = (!st.endSeq && (dad.dist < 13 || hp < 0.28));
   if ($("dmgborder").className !== (dang ? "on" : "")) $("dmgborder").className = dang ? "on" : "";
