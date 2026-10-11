@@ -1,6 +1,6 @@
 "use strict";
 /* ============================================================================
-   LE COLLEGE MOLIERE — portique d'arrivee, grilles, cour, batiment a horloge,
+   LE COLLEGE SAINT CHARLES — portique d'arrivee, grilles, cour, batiment a horloge,
    eleves qui acclament, drapeau.
    ============================================================================ */
 
@@ -47,12 +47,19 @@ function buildCollages() {
   bb.g("metal").box(15, 0.08, 0.08, 0, 4.9, 0.2, iron);
   gate.add(bb.finish());
   if (!GFX.tex.schoolSign2) {
-    const c = cv(1024, 160), x = c.getContext("2d");
-    const gr = x.createLinearGradient(0, 0, 0, 160); gr.addColorStop(0, "#1b3266"); gr.addColorStop(1, "#0d1c3d");
-    x.fillStyle = gr; x.fillRect(0, 0, 1024, 160);
-    x.strokeStyle = "#e9c25a"; x.lineWidth = 6; x.strokeRect(8, 8, 1008, 144);
-    x.fillStyle = "#f2d278"; x.font = "900 86px 'Orbitron', 'Arial Black', Impact, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
-    x.fillText("COLLÈGE MOLIÈRE", 512, 84);
+    // 2048 x 136 : meme proportions que l'enseigne (14,4 x 0,95 m), le texte n'est pas etire
+    const c = cv(2048, 136), x = c.getContext("2d");
+    const gr = x.createLinearGradient(0, 0, 0, 136); gr.addColorStop(0, "#1b3266"); gr.addColorStop(1, "#0d1c3d");
+    x.fillStyle = gr; x.fillRect(0, 0, 2048, 136);
+    x.strokeStyle = "#e9c25a"; x.lineWidth = 5; x.strokeRect(7, 7, 2034, 122);
+    x.fillStyle = "#f2d278"; x.textAlign = "center"; x.textBaseline = "middle";
+    const label = "COLLÈGE SAINT CHARLES";
+    let fs = 92;
+    do { x.font = "900 " + fs + "px 'Orbitron', 'Arial Black', Impact, sans-serif"; fs -= 4; } while (x.measureText(label).width > 1500 && fs > 40);
+    x.fillText(label, 1024, 72);
+    // petites croix de part et d'autre (Saint Charles)
+    x.fillStyle = "#e9c25a";
+    [-1, 1].forEach((s) => { const cx = 1024 + s * 960; x.fillRect(cx - 5, 34, 10, 68); x.fillRect(cx - 24, 54, 48, 10); });
     const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
     GFX.tex.schoolSign2 = t;
   }

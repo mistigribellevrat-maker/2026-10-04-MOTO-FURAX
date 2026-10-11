@@ -1,6 +1,6 @@
 "use strict";
 /* ============================================================================
-   RECETTE AUTOMATISEE — MOTOR FURAX
+   RECETTE AUTOMATISEE — MOTO FURAX
    Verifie les criteres d'acceptation du cahier des charges dans un vrai navigateur.
 
    Lancer :   cd tests && npm install && node acceptance.js
@@ -57,12 +57,31 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   await test("Ecran d'accueil", async () => {
     ok(await ev(() => MF.state) === "HOME", "etat initial = ACCUEIL");
     const t = await ev(() => document.querySelector(".game-title").textContent.replace(/\s+/g, " ").trim());
-    ok(/MOTOR/.test(t) && /FURAX/.test(t), "titre MOTOR FURAX affiche", t);
+    ok(/MOTO/.test(t) && /FURAX/.test(t), "titre MOTO FURAX affiche", t);
     ok(await ev(() => !!document.getElementById("btn-play") && document.getElementById("btn-play").offsetParent !== null), "bouton JOUER visible");
     ok(await ev(() => typeof MF.CFG.HOME_IMAGE === "string" && /\.jpg$/.test(MF.CFG.HOME_IMAGE)), "emplacement d'image .jpg configurable (CFG.HOME_IMAGE)", await ev(() => MF.CFG.HOME_IMAGE));
     ok(await ev(() => !!document.getElementById("home-bg")), "calque d'image de fond present");
     const pr = await ev(() => { const r = document.getElementById("home-poster").getBoundingClientRect(); return { w: r.width, h: r.height, top: r.top, bottom: r.bottom, vh: innerHeight }; });
     ok(pr.w > 300 && pr.h > 400 && pr.top >= 0 && pr.bottom <= pr.vh, "grand emplacement pour l'affiche du jeu, entierement visible", pr);
+  });
+  await test("Identite du jeu : affiche, college Saint Charles, voiture de police, musiques", async () => {
+    await page.waitForFunction(() => { const i = document.getElementById("home-poster-img"); return i.complete && i.naturalWidth > 0; }, null, { timeout: 15000 });
+    ok(await ev(() => document.getElementById("home-poster").classList.contains("has-image")), "l'affiche est chargee et affichee (assets/affiche.jpg)");
+    const ar = await ev(() => { const r = document.getElementById("home-poster").getBoundingClientRect(); return r.width / r.height; });
+    ok(near(ar, 1024 / 1536, 0.02), "le cadre prend les proportions de l'affiche (2:3)", ar);
+    const txt = await ev(() => document.documentElement.innerHTML);
+    ok(/SAINT CHARLES/i.test(txt) && !/MOLI[EÈ]RE/i.test(txt), "college Saint Charles dans l'interface (plus aucune trace de Moliere)");
+    ok(await ev(() => /SAINT CHARLES/.test(LEVELS[0].name)), "niveau 1 = college Saint Charles", await ev(() => LEVELS[0].name));
+    ok(await ev(() => !!MF.dad.lampB && !!MF.dad.lampR && !!MF.dad.glow && MF.dad.glow.isPointLight), "le poursuivant est une voiture de police : gyrophares bleu / rouge + eclairage de la route");
+    ok(await ev(() => /POLICE/.test(document.getElementById("hud").textContent) && !/PAPA/i.test(document.getElementById("hud").textContent)), "le HUD parle de la police (plus de papa)");
+    ok(await ev(() => /BROUILLAGE/.test(MF.PILOTS[4].power.name)), "pouvoir de Clothilde : brouillage radio", await ev(() => MF.PILOTS[4].power.name));
+    const urls = await ev(() => Object.values(MF.CFG.MUSIC));
+    ok(urls.length === 2, "deux musiques configurees (accueil + menu / course)", urls);
+    for (const u of urls) {
+      const st = await ev(async (u) => { const r = await fetch(u, { method: "HEAD" }); return r.status; }, u);
+      ok(st === 200, "fichier musique present : " + u, st);
+    }
+    ok(await ev(() => music.want === "menu"), "la musique d'accueil / menu est demandee des l'accueil", await ev(() => music.want));
   });
   await test("Transitions interdites depuis l'accueil", async () => {
     await page.keyboard.press("KeyR"); await page.keyboard.press("Escape"); await page.keyboard.press("KeyP");
@@ -114,8 +133,9 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await ev(() => MF.debug.advance(4.3));
     ok(await ev(() => MF.state) === "RACE", "course active apres le compte a rebours");
     const hud = await ev(() => ["hud-clock", "hud-speed", "hud-health-num", "hud-nitro-pct", "hud-dad-num", "hud-dist"].map((id) => document.getElementById(id).textContent));
-    ok(hud.every((t) => t && t.length), "HUD complet : chrono, vitesse, integrite, nitro, papa, distance", hud);
+    ok(hud.every((t) => t && t.length), "HUD complet : chrono, vitesse, integrite, nitro, police, distance", hud);
     ok(await ev(() => !document.getElementById("hud").classList.contains("hidden")), "HUD affiche en surimpression");
+    ok(await ev(() => music.want === "race"), "la musique de course prend le relais", await ev(() => music.want));
   });
 
   /* ---------------------------- PILOTAGE ---------------------------- */
@@ -283,13 +303,13 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   });
 
   /* ---------------------------- POURSUITE DU PERE ---------------------------- */
-  await test("Poursuite : a fond sans nitro papa grignote, la nitro creuse l'ecart, le freinage le rapproche", async () => {
+  await test("Poursuite : a fond sans nitro la police grignote, la nitro creuse l'ecart, le freinage le rapproche", async () => {
     await fresh(true);
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(6); });
     const d1 = await ev(() => MF.dad.dist);
     await ev(() => MF.debug.advance(8));
     const d2 = await ev(() => MF.dad.dist);
-    ok(d2 < d1 - 3, "vitesse de pointe sans nitro : papa finit par rattraper", { d1: +d1.toFixed(2), d2: +d2.toFixed(2) });
+    ok(d2 < d1 - 3, "vitesse de pointe sans nitro : la police finit par rattraper", { d1: +d1.toFixed(2), d2: +d2.toFixed(2) });
     await ev(() => { MF.debug.setNitro(100); MF.debug.key("nitro", true); MF.debug.advance(2.5); MF.debug.key("nitro", false); });
     const dn = await ev(() => MF.dad.dist);
     ok(dn > d2 + 15, "la nitro creuse nettement l'ecart", { avant: +d2.toFixed(1), apres: +dn.toFixed(1) });
@@ -306,7 +326,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await ev(() => MF.debug.spawn("protest", 0, -1, { freeze: true }));
     let dmin = d1;
     for (let i = 0; i < 25; i++) { await ev(() => MF.debug.advance(0.1)); dmin = Math.min(dmin, await ev(() => MF.dad.dist)); }
-    ok(dmin < d1 - 4, "apres le choc, papa a rattrape du terrain (distance minimale atteinte)", { avant: +d1.toFixed(1), minimum: +dmin.toFixed(1) });
+    ok(dmin < d1 - 4, "apres le choc, la police a rattrape du terrain (distance minimale atteinte)", { avant: +d1.toFixed(1), minimum: +dmin.toFixed(1) });
   });
 
   /* ---------------------------- PILOTES & SURPRISES ---------------------------- */
@@ -407,7 +427,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     ok(await ev(() => !PHOTO.on && MF.state === "PAUSE"), "Echap revient a la pause");
     await page.keyboard.press("Escape");
   });
-  await test("Pouvoirs : super saut, esquive, belier, hyper nitro, appel a papa", async () => {
+  await test("Pouvoirs : super saut, esquive, belier, hyper nitro, brouillage radio", async () => {
     await fresh(true, 0);
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(2); MF.debug.readyPower(); MF.debug.power(); MF.debug.advance(0.25); });
     ok(await ev(() => MF.player.y > 2.5), "Oscar : SUPER SAUT", await ev(() => MF.player.y));
@@ -424,7 +444,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     ok(await ev(() => MF.player.speed > 50 && MF.game.nitro > 99), "Tom : HYPER NITRO (nitro illimitee)", await ev(() => [MF.player.speed, MF.game.nitro]));
     await fresh(true, 4);
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(4); MF.debug.readyPower(); MF.debug.power(); MF.debug.advance(3); });
-    ok(await ev(() => MF.dad.speed < 8), "Clothilde : APPEL A PAPA (il s'arrete)", await ev(() => MF.dad.speed));
+    ok(await ev(() => MF.dad.speed < 8), "Clothilde : BROUILLAGE RADIO (la voiture de police s'arrete)", await ev(() => MF.dad.speed));
     await ev(() => MF.debug.key("up", false));
   });
   await test("Voiture folle : arrive par derriere, se rabat, renverse", async () => {
@@ -451,7 +471,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   });
 
   /* ---------------------------- FIN DE PARTIE ---------------------------- */
-  await test("Defaite : interception par le pere", async () => {
+  await test("Defaite : interception par la police", async () => {
     await fresh();
     await ev(() => { MF.dad.dist = 2.0; MF.debug.advance(0.1); });
     ok(await ev(() => MF.state) === "LOSE" || await ev(() => !!MF.game.endSeq), "capture immediate");
@@ -463,6 +483,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await fresh();
     await ev(() => { MF.debug.setTimeLeft(0.05); MF.debug.advance(0.3); MF.debug.advance(2.5); });
     ok(await ev(() => MF.state) === "LOSE" && await ev(() => /TARD/.test(document.getElementById("end-title").textContent)), "etat DEFAITE (trop tard)");
+    ok(await ev(() => music.want === null), "la musique de course s'eteint a la fin", await ev(() => music.want));
   });
   await test("Defaite : integrite a zero", async () => {
     await fresh();
@@ -472,7 +493,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   await test("Priorite d'interception sur toute autre defaite", async () => {
     await fresh();
     await ev(() => { MF.debug.setTimeLeft(0.01); MF.dad.dist = 2.0; MF.debug.advance(0.1); });
-    ok(await ev(() => MF.game.endSeq.reason) === "dad", "papa prime sur le chrono", await ev(() => MF.game.endSeq.reason));
+    ok(await ev(() => MF.game.endSeq.reason) === "dad", "la police prime sur le chrono", await ev(() => MF.game.endSeq.reason));
   });
   await test("Victoire : franchissement du portail", async () => {
     await fresh();
@@ -480,7 +501,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     ok(await ev(() => MF.state) === "WIN", "etat VICTOIRE");
     ok(await ev(() => MF.game.timeLeft > 0 && MF.game.integrity > 0), "chrono > 0 et integrite > 0");
   });
-  await test("Arbitrage : victoire prioritaire si papa interceptait au meme instant", async () => {
+  await test("Arbitrage : victoire prioritaire si la police interceptait au meme instant", async () => {
     await fresh();
     await ev(() => { MF.debug.teleport(-(MF.CFG.TOTAL_DIST - 0.4)); MF.player.speed = 40; MF.dad.dist = 2.3; MF.debug.key("up", true); MF.debug.advance(0.05); });
     ok(await ev(() => MF.game.endSeq && MF.game.endSeq.win), "VICTOIRE prime sur la capture", await ev(() => MF.game.endSeq));

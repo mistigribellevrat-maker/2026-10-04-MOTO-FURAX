@@ -144,10 +144,10 @@ function showEndScreen(win, reason) {
   $("end-kicker").textContent = (save.mode === "daily" ? "DÉFI DU JOUR · " : curLevel().short + " · ") + P.name + (A.id ? " · " + A.short : "");
   $("end-title").textContent = win ? "À L'HEURE !" : (reason === "time" ? "TROP TARD !" : (reason === "moto" ? "MOTO HS !" : "RATTRAPÉ !"));
   const descs = {
-    win: "Tu franchis le portail du Collège Molière juste avant la sonnerie. Le surveillant hoche la tête. Respect, " + pn + ".",
+    win: "Tu franchis le portail du Collège Saint Charles juste avant la sonnerie. Le surveillant hoche la tête. Respect, " + pn + ".",
     time: "La sonnerie a retenti. Tu es encore à trois rues du collège : deux heures de colle samedi, et papa est furax.",
     moto: "Ta moto a rendu l'âme dans un nuage de fumée. Tu termines à pied. Autant dire en retard.",
-    dad: "Ton père t'a rattrapé en scooter. Retour à la maison, et cette fois tu prends le bus."
+    dad: "La voiture de police t'a rattrapé : contrôle, coup de fil aux parents, et cette fois tu prends le bus."
   };
   $("end-desc").textContent = descs[reason] || descs.time;
   const banner = famRec ? "RECORD DE LA FAMILLE !" : (timeRec ? "NOUVEAU RECORD DE " + P.name + " !" : (scoreRec ? "MEILLEUR SCORE DE " + P.name + " !" : ""));

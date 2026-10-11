@@ -3,14 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MOTOR FURAX — La Course au Collège</title>
-<meta name="description" content="MOTOR FURAX : aide ton pilote à rejoindre son collège avant la sonnerie, en moto, à travers une ville pleine d'obstacles.">
+<title>MOTO FURAX — La Course au Collège</title>
+<meta name="description" content="MOTO FURAX : aide ton pilote à rejoindre son collège avant la sonnerie, en moto, à travers une ville pleine d'obstacles.">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%23ff4d00"/><text x="32" y="43" font-size="26" font-family="Arial Black,sans-serif" font-weight="900" fill="white" text-anchor="middle">MF</text></svg>'>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-<div id="loading"><div class="ld-box"><div class="ld-title">MOTOR <b>FURAX</b></div><div class="ld-bar"><i id="ld-fill"></i></div><div id="ld-text">Chargement…</div></div></div>
+<!-- filtre "peinture seche" : bords irreguliers du titre, comme le lettrage de l'affiche -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="rough" x="-6%" y="-14%" width="112%" height="128%"><feTurbulence type="fractalNoise" baseFrequency="0.028 0.11" numOctaves="3" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
+
+<div id="loading"><div class="ld-box"><div class="ld-title">MOTO <b>FURAX</b></div><div class="ld-slogan">Friends · Speed · No limits</div><div class="ld-bar"><i id="ld-fill"></i></div><div id="ld-text">Chargement…</div></div></div>
 
 <!-- ============================ SCENE 3D ============================ -->
 <div id="webgl"></div>
@@ -36,7 +39,7 @@
       <div class="clock-label">SONNERIE DU COLLÈGE</div>
       <div class="track" id="hud-track">
         <i class="fill" id="hud-progress"></i>
-        <b class="mk dad" id="mk-dad" title="Papa"></b>
+        <b class="mk dad" id="mk-dad" title="Police"></b>
         <b class="mk bike" id="mk-bike"></b>
         <b class="mk school"><svg viewBox="0 0 24 24"><path d="M12 3 2 9v2h20V9L12 3zM4 12v7H2v2h20v-2h-2v-7h-2v7h-3v-7h-2v7h-2v-7H9v7H6v-7H4z"/></svg></b>
       </div>
@@ -49,8 +52,8 @@
   <div class="hud-speed">
     <svg viewBox="0 0 220 220" class="gauge-svg">
       <defs>
-        <linearGradient id="gSpeed" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#22e0ff"/><stop offset=".6" stop-color="#ffc531"/><stop offset="1" stop-color="#ff4d00"/></linearGradient>
-        <linearGradient id="gNitro" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1c7bff"/><stop offset="1" stop-color="#7df0ff"/></linearGradient>
+        <linearGradient id="gSpeed" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8cc4ff"/><stop offset=".55" stop-color="#ffc24a"/><stop offset="1" stop-color="#ff3b24"/></linearGradient>
+        <linearGradient id="gNitro" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2b6bff"/><stop offset="1" stop-color="#9ccaff"/></linearGradient>
       </defs>
       <path class="arc-bg" pathLength="100" d="M 44 176 A 92 92 0 1 1 176 176"/>
       <path class="arc-speed" id="hud-speed-arc" pathLength="100" d="M 44 176 A 92 92 0 1 1 176 176"/>
@@ -63,22 +66,22 @@
     <div class="power-read" id="hud-power"><div class="pw-fill" id="hud-power-fill"></div><b id="hud-power-name">POUVOIR</b><span>E</span></div>
   </div>
 
-  <!-- bas droite : integrite + papa -->
+  <!-- bas droite : integrite + voiture de police -->
   <div class="hud-vitals">
     <div class="vital health" id="vital-health">
       <svg class="ic" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>
       <div class="vbody"><div class="vlabel"><span>INTÉGRITÉ MOTO</span><b id="hud-health-num">100%</b></div><div class="seg-bar"><i id="hud-health"></i></div></div>
     </div>
     <div class="vital dad" id="hud-dad-bar">
-      <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z"/></svg>
-      <div class="vbody"><div class="vlabel"><span>PAPA SUR TES TRACES</span><b id="hud-dad-num">-- m</b></div><div class="seg-bar"><i id="hud-dad"></i></div></div>
+      <svg class="ic" viewBox="0 0 24 24"><path d="M5 19h14v2H5zM7 18v-5a5 5 0 0 1 10 0v5zM11 2h2v3h-2zM3.6 6.4l1.4-1.4 2.1 2.1-1.4 1.4zM20.4 6.4 19 5l-2.1 2.1 1.4 1.4z"/></svg>
+      <div class="vbody"><div class="vlabel"><span>POLICE SUR TES TRACES</span><b id="hud-dad-num">-- m</b></div><div class="seg-bar"><i id="hud-dad"></i></div></div>
     </div>
   </div>
 
   <div id="hud-alert"></div>
   <div id="hud-threat" class="hud-threat"><b>&#9888;</b><span>VOITURE FOLLE</span><i>&#9660;</i></div>
   <div id="hud-pickup"></div>
-  <div id="banner-school"><b>COLLÈGE MOLIÈRE</b><span>DERNIÈRE SONNERIE DANS 20 SECONDES</span></div>
+  <div id="banner-school"><b>COLLÈGE SAINT CHARLES</b><span>DERNIÈRE SONNERIE DANS 20 SECONDES</span></div>
   <div id="countdown" class="hidden"></div>
 
   <div class="mobile-controls" id="mobile-controls">
@@ -102,13 +105,13 @@
   <div id="home-shade"></div>
   <div class="home-inner">
     <div class="logo-kicker">Course urbaine &middot; 8h55 &middot; dernier avertissement</div>
-    <h1 class="game-title"><span class="t-motor">MOTOR</span><span class="t-furax">FURAX</span></h1>
-    <p class="home-tag">La sonnerie retentit dans <b id="tag-time">60 secondes</b>. Le collège est à l'autre bout de la ville. Papa est derrière toi, une voiture folle sème la panique, les manifestants bloquent la rue. <b>Choisis ton pilote. Fonce.</b></p>
+    <h1 class="game-title"><span class="t-motor">MOTO</span><span class="t-furax">FURAX</span></h1>
+    <p class="home-tag">La sonnerie retentit dans <b id="tag-time">60 secondes</b>. Le collège est à l'autre bout de la ville. La police est à tes trousses, une voiture folle sème la panique, les manifestants bloquent la rue. <b>Choisis ton pilote. Fonce.</b></p>
     <button id="btn-play" class="btn btn-xl" type="button">JOUER</button>
     <p class="home-hint">Entrée &middot; Espace &middot; ou clique</p>
   </div>
   <div class="home-poster" id="home-poster">
-    <img id="home-poster-img" alt="Affiche MOTOR FURAX">
+    <img id="home-poster-img" alt="Affiche MOTO FURAX">
     <div class="poster-ph"><b>AFFICHE DU JEU</b><span>Place ton image ici :<br><code>assets/affiche.jpg</code></span><small>format conseillé 1200 × 1600 (3:4) — tout format est accepté</small></div>
   </div>
 </div>
@@ -154,7 +157,7 @@
     <div class="pilot-grid" id="pilot-grid"></div>
     <div class="pilot-detail" id="pilot-detail"></div>
     <div class="pilot-foot">
-      <div class="pilot-aid" title="Papa un peu plus lent, moins de dégâts, trajectoire corrigée, quelques secondes en plus. Les records avec aide sont comptés à part."><span>AIDE POUR <b id="pilot-aid-name">OSCAR</b> :</span><div id="pilot-aid"></div></div>
+      <div class="pilot-aid" title="Police un peu plus lente, moins de dégâts, trajectoire corrigée, quelques secondes en plus. Les records avec aide sont comptés à part."><span>AIDE POUR <b id="pilot-aid-name">OSCAR</b> :</span><div id="pilot-aid"></div></div>
       <div class="modal-actions">
         <button id="btn-pilot-go" class="btn" type="button">C'EST PARTI !</button>
         <button id="btn-pilot-close" class="btn btn-ghost" type="button">RETOUR</button>

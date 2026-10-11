@@ -2,7 +2,7 @@
 /* ============================================================================
    EVENEMENTS SURPRISES, TREMPLINS, FROLEMENTS ET SCORE
    - Directeur d'evenements : toutes les 9-14 s, une surprise (voiture folle, voiture a contresens,
-     raccourci de papa, chantier surprise, pluie de bonus). Jamais deux courses identiques.
+     raccourci de la police, chantier surprise, pluie de bonus). Jamais deux courses identiques.
    - Voiture folle : arrive par derriere, double, se rabat sur toi (queue de poisson) puis zigzague.
    - Frolements : passer tout pres d'un obstacle sans le toucher rapporte des points, de la nitro et
      fait monter le multiplicateur de combo (perdu au premier choc).
@@ -102,8 +102,8 @@ function makeCrazyCar() {
   const g = new THREE.Group();
   const body = makeCarProto(pick(["sedan", "hatch", "suv"]), pick(CRAZY_COLORS)).clone();
   g.add(body);
-  // gyrophare de fou furieux sur le toit
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), ownMat(new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.4, 0.2), toneMapped: false })));
+  // girophare de fou furieux sur le toit (rose / vert : surtout pas bleu / rouge, ce serait la police)
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), ownMat(new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 0.4, 2.4), toneMapped: false })));
   lamp.position.set(0, 1.85, 0.2); g.add(lamp);
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   const e = regEnt(g, { type: "crazycar", level: "FULL", hw: 0.95, hl: 2.3, hh: 1.6, damage: 20, moving: true });
@@ -164,7 +164,7 @@ function updateCrazyCar(e, dt, P) {
   e.obj.position.set(e.x, 0, e.z);
   e.obj.rotation.y = damp(e.obj.rotation.y, -vx * 0.06, 8, dt);
   e.body.rotation.z = damp(e.body.rotation.z, vx * 0.012, 6, dt);
-  e.lamp.material.color.setRGB(Math.sin(clockT * 18) > 0 ? 3 : 0.3, 0.4, Math.sin(clockT * 18) > 0 ? 0.2 : 2.5);
+  e.lamp.material.color.setRGB(Math.sin(clockT * 18) > 0 ? 3 : 0.4, Math.sin(clockT * 18) > 0 ? 0.4 : 3, Math.sin(clockT * 18) > 0 ? 2.4 : 0.4);
 }
 
 /* --------------------------- VOITURE A CONTRESENS --------------------------- */
@@ -214,7 +214,7 @@ function dadShortcut() {
   if (dad.dist < 26) return false;
   dad.dist = Math.max(15, dad.dist - rnd(12, 17));
   audio.horn();
-  showAlert("PAPA A PRIS UN RACCOURCI !", "", 1800);
+  showAlert("LA POLICE A PRIS UN RACCOURCI !", "", 1800);
   return true;
 }
 

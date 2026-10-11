@@ -41,7 +41,12 @@ window.MF = {
       if (name === "bike") { DBG.cam = { p: [3.4, 2.4, player.z + 4.6], l: [0, 1.0, player.z], fov: 30 }; }
       else if (name === "bikeside") { DBG.cam = { p: [5.5, 1.5, player.z], l: [0, 1.0, player.z], fov: 26 }; }
       else if (name === "bikefront") { DBG.cam = { p: [1.5, 1.6, player.z - 5.5], l: [0, 1.0, player.z], fov: 28 }; }
-      else if (name === "dad") { const d2 = dad.root.clone(true); d2.visible = true; d2.position.set(0, 0, z); scene.add(d2); DBG.studioObj = d2; DBG.cam = { p: [3.4, 2.5, z + 5.2], l: [0, 1.3, z], fov: 30 }; }
+      else if (name === "dad" || name === "police" || name === "policefront" || name === "policeside") {
+        // la voiture de police (le groupe est decale de 1,95 m vers l'arriere : le point de visee en tient compte)
+        const d2 = dad.root.clone(true); d2.visible = true; d2.position.set(0, 0, z); scene.add(d2); DBG.studioObj = d2;
+        dad.glow.position.set(0, 2.5, z + 2.2); dad.glow.intensity = 24;
+        DBG.cam = name === "policefront" ? { p: [-3.4, 1.5, z - 4.4], l: [0, 0.9, z + 1.9], fov: 30 } : name === "policeside" ? { p: [7.5, 1.4, z + 1.9], l: [0, 0.9, z + 1.9], fov: 24 } : { p: [3.6, 3.6, z + 10], l: [0, 0.8, z + 1.9], fov: 30 };
+      }
       else if (name === "bikemid") { DBG.cam = { p: [4.6, 2.6, player.z + 5.8], l: [0, 1.0, player.z], fov: 38 }; }
       else if (name === "bikegame") { DBG.cam = null; }
       else if (name === "item") { const e = makeItem("nitro"); place(e, [2.4, 1.8, 3.4, 0.9, 30]); }

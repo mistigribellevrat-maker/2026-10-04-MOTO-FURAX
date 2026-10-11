@@ -55,6 +55,7 @@ function canvasTex(w, h, draw, repX, repY, linear) {
 const CFG = {
   HOME_IMAGE: "assets/affiche.jpg",          // affiche du jeu (ecran d'accueil) — format libre, 3:4 conseille
   PILOT_PHOTO_DIR: "assets/pilotes/",        // visages des pilotes : oscar.jpg, arthur.jpg, tom.jpg, yanis.jpg, clothilde.jpg
+  MUSIC: { menu: "assets/musique/musique_accueil_menu.mp3", race: "assets/musique/musique_en_jeu.mp3" },   // musiques (accueil + menu / course)
   ROAD_W: 14,
   SIDEWALK_W: 4.6,
   SIDEWALK_H: 0.34,
@@ -76,8 +77,8 @@ const CFG = {
   DAD_START: 34,
   DAD_MIN: 12,
   DAD_MAX: 30,
-  DAD_PACE: 1.02,       // rythme de papa en multiple de TA vitesse de pointe (sans nitro) au depart...
-  DAD_PACE_END: 1.06,   // ...et a l'arrivee : a fond sans nitro, il grignote toujours du terrain
+  DAD_PACE: 1.02,       // rythme de la voiture de police en multiple de TA vitesse de pointe (sans nitro) au depart...
+  DAD_PACE_END: 1.06,   // ...et a l'arrivee : a fond sans nitro, elle grignote toujours du terrain
   DAD_MAX_DIST: 55,
   EVENT_FIRST: 7,       // premier evenement surprise (s)
   EVENT_GAP: [9, 14],   // intervalle entre deux evenements (s)
@@ -87,12 +88,15 @@ const CFG = {
 // Toutes les motos ont EXACTEMENT les memes performances : seul le style change (equite entre les enfants).
 // Les deux dernieres se debloquent avec les etoiles gagnees par le pilote.
 const BIKE_PERF = { maxSpeed: 42, accel: 16.5, nitroSpeed: 61, health: 110 };
+// Les deux premieres reprennent les motos de l'affiche (noir / rouge, blanc / rouge / noir). La n°1 est celle par defaut.
 const BIKES = [
-  { id: "cross", name: "CROSS 125", desc: "Orange pétard, la bécane des trottoirs.", color: 0xff4d00, accent: 0xffffff, stars: 0 },
+  { id: "furax", name: "FURAX NOIRE", desc: "Noire et rouge, comme sur l'affiche.", color: 0x17181d, accent: 0xe02709, stars: 0 },
   { id: "ssb", name: "SUPERBIKE SSB", desc: "Bleu électrique et liseré or.", color: 0x0fb4ff, accent: 0xffdd55, stars: 0 },
   { id: "v8", name: "FURAX V8", desc: "Jaune taxi, look de brute.", color: 0xffbe0b, accent: 0x222222, stars: 0 },
   { id: "proto", name: "PROTO 500", desc: "Vert fluo de prototype.", color: 0x39ff6a, accent: 0x111111, stars: 3 },
-  { id: "rocket", name: "FUSÉE DE POCHE", desc: "Rose bonbon et chrome.", color: 0xff3fb4, accent: 0xf2f2f2, stars: 6 }
+  { id: "rocket", name: "FUSÉE DE POCHE", desc: "Rose bonbon et chrome.", color: 0xff3fb4, accent: 0xf2f2f2, stars: 6 },
+  { id: "cross", name: "CROSS 125", desc: "Orange pétard, la bécane des trottoirs.", color: 0xff4d00, accent: 0xffffff, stars: 0 },
+  { id: "blanche", name: "FURAX BLANCHE", desc: "Blanche, rouge et noire : la sœur de la Noire.", color: 0xf1f2f4, accent: 0xe02709, stars: 0 }
 ].map((b) => Object.assign({}, BIKE_PERF, b));
 
 /* ------------------------------- PILOTES -------------------------------- */
@@ -134,7 +138,7 @@ const PILOTS = [
     stats: [3, 3, 3, 3, 5], ponytail: 0x6a3a1c,
     mods: { nitroRegen: 2.7, coffee: 10, coffeeNitro: 40, friend: true },
     passive: "Toujours un coup d'avance : nitro qui se recharge très vite, cafés à +10 s et +40 nitro, et la copine lui donne un boost.",
-    power: { id: "call", name: "APPEL À PAPA", desc: "Elle appelle papa : il décroche et s'arrête 4 secondes.", cd: 15 }
+    power: { id: "call", name: "BROUILLAGE RADIO", desc: "Elle brouille la radio de la police : la voiture s'arrête 4 secondes.", cd: 15 }
   }
 ];
 const PILOT_STATS = ["saut", "solidité", "nitro", "agilité", "malice"];
@@ -153,7 +157,7 @@ const AIDS = [
 // (la distance reste 2000 m pour tous : la route et le college sont construits une seule fois)
 const LEVELS = [
   {
-    id: "college", name: "NIVEAU 1 · COLLÈGE MOLIÈRE", short: "COLLÈGE", time: 60, density: 1, events: 1, weather: "sun",
+    id: "college", name: "NIVEAU 1 · COLLÈGE SAINT CHARLES", short: "COLLÈGE", time: 60, density: 1, events: 1, weather: "sun",
     challenges: [
       { id: "win", text: "Arriver avant la sonnerie" },
       { id: "clean", text: "Arriver avec moins de 3 chocs" },

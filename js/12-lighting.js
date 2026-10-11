@@ -1,10 +1,14 @@
 "use strict";
 /* ============================================================================
-   LUMIERE — matinée dorée : soleil bas et chaud, ciel procédural, IBL,
-   brume atmosphérique et ombres directionnelles stabilisées (pas de scintillement).
+   LUMIERE — heure dorée de l'affiche : soleil bas orange, ciel bleu nuit -> pêche -> or,
+   nuages incendiés, brume chaude, ombres bleutées. Ciel procédural, IBL,
+   ombres directionnelles stabilisées (pas de scintillement).
    ============================================================================ */
 
-const SUN_DIR = new THREE.Vector3(-0.52, 0.74, 0.43).normalize();
+// Soleil bas, EN FACE (au bout de la rue, un peu a droite) comme sur l'affiche : contre-jour dore, ombres qui
+// s'etirent vers la camera. SUN_DIR eclaire et projette les ombres ; le disque visible dans le ciel est le meme.
+const SUN_DIR = new THREE.Vector3(0.38, 0.42, -0.84).normalize();
+const SUN_VIS = SUN_DIR;
 const SKY_VS = [
   "varying vec3 vP;",
   "void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }"
@@ -21,24 +25,30 @@ const SKY_FS = [
   "void main(){",
   "  vec3 d = normalize(vP);",
   "  float h = d.y;",
-  "  vec3 c = mix(uHor, uMid, smoothstep(0.0, 0.2, h));",
-  "  c = mix(c, uTop, smoothstep(0.14, 0.85, h));",
-  "  c = mix(c, uHor * 0.92, smoothstep(0.0, -0.25, h));",
+  "  vec3 c = mix(uHor, uMid, smoothstep(0.0, 0.24, h));",
+  "  c = mix(c, uTop, smoothstep(0.1, 0.9, h));",
+  "  c = mix(c, uHor * 0.9, smoothstep(0.0, -0.25, h));",
   "  float s = max(dot(d, uSunDir), 0.0);",
-  "  c += uSunCol * (pow(s, 900.0) * 14.0 + pow(s, 40.0) * 0.5 + pow(s, 5.0) * 0.16);",
+  // disque, halo et voile de brume doree le long de l'horizon, cote soleil
+  "  c += uSunCol * (pow(s, 1500.0) * 22.0 + pow(s, 70.0) * 1.0 + pow(s, 7.0) * 0.4);",
+  "  c += uSunCol * 0.32 * pow(s, 2.5) * exp(-abs(h) * 8.0);",
   "  if (uClouds > 0.5) {",
   "    vec2 cp = d.xz / (h + 0.16) * 0.42 + vec2(uTime * 0.006, 0.0);",
-  "    float cl = smoothstep(0.48, 0.86, fbm(cp)) * smoothstep(0.015, 0.28, h);",
-  "    vec3 cc = mix(vec3(1.0, 0.93, 0.82), vec3(0.78, 0.84, 0.95), smoothstep(0.1, 0.6, h));",
-  "    c = mix(c, cc * (0.85 + 0.5 * pow(s, 3.0)), cl * 0.78);",
+  "    float n = fbm(cp);",
+  "    float cl = smoothstep(0.44, 0.82, n) * smoothstep(0.015, 0.3, h);",
+  // nuages : face au soleil orange dore, dessous mauve sombre, liseré argente
+  "    float lit = clamp(0.3 + n * 0.55 + pow(s, 2.0) * 0.9 - h * 0.35, 0.0, 1.0);",
+  "    vec3 cc = mix(vec3(0.36, 0.2, 0.3), vec3(1.0, 0.6, 0.28), lit);",
+  "    cc += uSunCol * pow(s, 9.0) * 0.9;",
+  "    c = mix(c, cc, cl * 0.88);",
   "  }",
   "  gl_FragColor = vec4(c, 1.0);",
   "}"
 ].join("\n");
 
 const SKY_COLORS = {
-  top: 0x3a72c8, mid: 0x9cc2ea, hor: 0xf1dcc4, sun: 0xffd9a8,
-  fog: 0xe6d3bf
+  top: 0x2c4a8c, mid: 0xe8915a, hor: 0xffc27a, sun: 0xffb766,
+  fog: 0xeeb27c
 };
 let skyMesh = null, skyUniforms = null;
 
@@ -47,7 +57,7 @@ function makeSkyMaterial(withClouds) {
     uTop: { value: new THREE.Color(SKY_COLORS.top) },
     uMid: { value: new THREE.Color(SKY_COLORS.mid) },
     uHor: { value: new THREE.Color(SKY_COLORS.hor) },
-    uSunDir: { value: SUN_DIR.clone() },
+    uSunDir: { value: SUN_VIS.clone() },
     uSunCol: { value: new THREE.Color(SKY_COLORS.sun) },
     uClouds: { value: withClouds ? 1 : 0 },
     uTime: { value: 0 }
@@ -65,7 +75,7 @@ function buildEnvironmentMap() {
   const sphere = new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), mat);
   envScene.add(sphere);
   // sol chaud pour les rebonds de lumiere
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(95, 32), new THREE.MeshBasicMaterial({ color: 0x5a4c40 }));
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(95, 32), new THREE.MeshBasicMaterial({ color: 0x6a4630 }));
   floor.rotation.x = -Math.PI / 2; floor.position.y = -1.5;
   envScene.add(floor);
   const pm = new THREE.PMREMGenerator(RENDER.renderer);
@@ -83,12 +93,12 @@ function buildSky() {
   skyMesh.frustumCulled = false;
   scene.add(skyMesh);
 
-  scene.fog = new THREE.FogExp2(SKY_COLORS.fog, 0.0043);
+  scene.fog = new THREE.FogExp2(SKY_COLORS.fog, 0.0049);
 
-  const hemi = new THREE.HemisphereLight(0xdbe6ff, 0x8a7560, 0.5);
+  const hemi = new THREE.HemisphereLight(0x86a2e6, 0xc2763e, 0.55);
   scene.add(hemi);
 
-  dirLight = new THREE.DirectionalLight(0xffe0b0, 2.35);
+  dirLight = new THREE.DirectionalLight(0xffb870, 2.6);
   dirLight.castShadow = true;
   dirLight.shadow.camera.left = -46; dirLight.shadow.camera.right = 46;
   dirLight.shadow.camera.top = 74; dirLight.shadow.camera.bottom = -74;

@@ -1,6 +1,6 @@
 "use strict";
 /* ============================================================================
-   VEHICULES — moto du heros (avec pilote), scooter de papa, camion SSB, bus,
+   VEHICULES — moto du heros (avec pilote), voiture de police (poursuivant), camion SSB, bus,
    objets a ramasser, flaques, cones.
    Repere : l'avant est toujours vers -z.
    ============================================================================ */
@@ -11,7 +11,8 @@ const player = {
   stun: 0, integrity: 100, nitro: 100, wheelSpin: 0, bounce: 0, boostFlame: null,
   sputter: 0, head: null, scarf: null, exhaustPos: null, taillight: null
 };
-const dad = { root: null, x: 0, z: 40, speed: 0, dist: CFG.DAD_START, light: null, warn: 0 };
+// le poursuivant : la voiture de police (nom "dad" conserve : c'etait papa en scooter, voir buildDad)
+const dad = { root: null, x: 0, z: 40, speed: 0, dist: CFG.DAD_START, warn: 0 };
 
 const _tmpV = new THREE.Vector3();
 
@@ -260,73 +261,72 @@ function buildPlayer() {
   buildPlayerLights();
 }
 
-/* ---------------------------- PAPA SUR SON SCOOTER ---------------------------- */
+/* ------------------------ LA VOITURE DE POLICE (le poursuivant) ------------------------ */
+// Le poursuivant s'appelle "dad" dans tout le code (nom historique, du temps ou c'etait papa en scooter).
+// Berline blanche a bande bleue, gyrophares bleu / rouge en alternance, eclairage bleu / rouge sur la
+// route (PointLight permanent : le nombre de lumieres de la scene ne change jamais, pas de recompilation).
+// L'animation des lumieres est dans policeFx() (41-gamefeel.js).
+function paintPoliceTextures() {
+  if (GFX.tex.policeSide) return;
+  const mk = (c) => { const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t; };
+  const fit = (x, label, max, size) => { let fs = size; do { x.font = "900 " + fs + "px 'Orbitron', 'Arial Black', Impact, sans-serif"; fs -= 4; } while (x.measureText(label).width > max && fs > 24); };
+  // flanc : lettres blanches cerclees de bleu fonce, posees sur la bande bleue
+  const side = cv(1024, 160), sx = side.getContext("2d");
+  sx.textAlign = "center"; sx.textBaseline = "middle"; sx.lineJoin = "round";
+  fit(sx, "POLICE", 900, 120);
+  sx.lineWidth = 12; sx.strokeStyle = "#0a2a7a"; sx.strokeText("POLICE", 512, 84);
+  sx.fillStyle = "#ffffff"; sx.fillText("POLICE", 512, 84);
+  // capot : lettres bleues cerclees de blanc, lisibles par le conducteur qui suit
+  const hood = cv(512, 192), hx = hood.getContext("2d");
+  hx.textAlign = "center"; hx.textBaseline = "middle"; hx.lineJoin = "round";
+  fit(hx, "POLICE", 430, 110);
+  hx.lineWidth = 14; hx.strokeStyle = "#ffffff"; hx.strokeText("POLICE", 256, 100);
+  hx.fillStyle = "#1646b8"; hx.fillText("POLICE", 256, 100);
+  GFX.tex.policeSide = mk(side); GFX.tex.policeHood = mk(hood);
+}
+
 function buildDad() {
   if (dad.root) worldGroup.remove(dad.root);
+  if (dad.glow) worldGroup.remove(dad.glow);
+  paintPoliceTextures();
   const g = new THREE.Group();
-  const scooter = new THREE.Group();
-  const mint = 0x6fcfb4, cream = 0xf4ecd6;
+  const car = new THREE.Group();
+  const L = 4.5, blue = 0x1646b8;
+  car.add(makeCarProto("sedan", 0xf3f5f8).clone());
   const bb = new BB();
-  bb.g("paint").rbox(0.5, 0.16, 1.3, 0.06, 0, 0.36, 0.0, cream, { ao: 0.2 });                       // plancher
-  bb.g("paint").add(new THREE.CapsuleGeometry(0.26, 0.5, 5, 14), mint, { x: 0, y: 0.78, z: 0.5, rx: Math.PI / 2, sx: 1.0, sy: 1.0, sz: 1.25 }); // carter
-  bb.g("paint").rbox(0.56, 0.9, 0.12, 0.05, 0, 0.74, -0.52, mint, { rx: 0.28 });                       // tablier
-  bb.g("paint").rbox(0.28, 0.12, 0.3, 0.05, 0, 0.4, -0.55, cream);
-  bb.g("matte").rbox(0.34, 0.1, 0.62, 0.04, 0, 1.0, 0.2, 0x3a2418);                                  // selle
-  bb.g("metal").cyl(0.025, 0.025, 0.7, 8, 0, 1.2, -0.62, 0xd0d5dd, { rx: 0.2 });
-  bb.g("metal").cyl(0.02, 0.02, 0.72, 8, 0, 1.52, -0.7, 0xd0d5dd, { rz: Math.PI / 2 });
-  bb.g("paint").sphere(0.13, 0, 1.52, -0.78, mint, { sz: 0.9, ws: 12, hs: 10 });
-  bb.g("glow").sphere(0.1, 0, 1.52, -0.87, 0xfff4cf, { sz: 0.5, ws: 10, hs: 8 });
-  bb.g("chrome").sphere(0.045, 0.34, 1.52, -0.66, 0xdde2ea, { ws: 8, hs: 6 });
-  bb.g("chrome").cyl(0.035, 0.035, 0.1, 8, -0.38, 1.52, -0.66, 0xdde2ea, { rz: Math.PI / 2 });
-  bb.g("metal").rbox(0.5, 0.05, 0.05, 0.02, 0, 0.48, 0.0, 0xdde2ea);
-  bb.g("paint").rbox(0.34, 0.06, 0.4, 0.03, 0, 1.32, 1.0, mint);                                       // porte-bagages
-  bb.g("glow").rbox(0.18, 0.06, 0.04, 0.02, 0, 0.95, 0.99, 0xff2a3a);
-  scooter.add(bb.finish());
-  const mkw = () => {
-    const w = new THREE.Group();
-    const T = new GeoBuilder();
-    T.lathe([[0.1, -0.08], [0.2, -0.09], [0.26, -0.06], [0.28, 0], [0.26, 0.06], [0.2, 0.09], [0.1, 0.08]], 20, 0, 0, 0, 0x18191c, { rz: Math.PI / 2 });
-    w.add(meshOf(T.build(), GFX.mat.rubber));
-    const R = new GeoBuilder();
-    R.cyl(0.19, 0.19, 0.17, 18, 0, 0, 0, mint, { rz: Math.PI / 2 });
-    R.cyl(0.07, 0.07, 0.19, 10, 0, 0, 0, 0xdde2ea, { rz: Math.PI / 2 });
-    w.add(meshOf(R.build(), GFX.mat.paint));
-    return w;
-  };
-  const w1 = mkw(); w1.position.set(0, 0.28, -0.78); scooter.add(w1);
-  const w2 = mkw(); w2.position.set(0, 0.28, 0.74); scooter.add(w2);
-  g.add(scooter);
-
-  // papa en peignoir
-  const papa = buildHuman({
-    h: 1.0, skin: 0xe0957a, hair: 0x8a8a90, hairStyle: "balding", shirt: 0x8a2b3a, pants: 0x4a6aa8, shoe: 0xe56f8a,
-    armL: "fist", armR: "bars", mouth: 1, brow: 1, head: 1.3, build: 1.12
+  [-1, 1].forEach((s) => {
+    bb.g("paint").box(0.02, 0.16, 3.4, s * 0.895, 0.57, 0.05, blue);               // bande bleue sur les portieres
+    bb.g("paint").box(0.02, 0.05, 3.4, s * 0.89, 0.46, 0.05, 0xd32424);              // liseré rouge dessous
+    bb.g("metal").cyl(0.012, 0.012, 0.55, 5, s * 0.62, 1.72, 0.95, 0x1a1c20);       // antennes
   });
-  papa.root.position.set(0, 0.2, 0.16);
-  papa.hips.rotation.x = -0.42;
-  papa.legL.rotation.x = 1.2; papa.legR.rotation.x = 1.2;
-  papa.legL.rotation.z = 0.08; papa.legR.rotation.z = -0.08;
-  g.add(papa.root);
-  // pans du peignoir : flottent derriere la selle
-  const robe = new THREE.Group(); robe.position.set(0, 1.0, 0.36); papa.root.add(robe);
-  const rg = new GeoBuilder();
-  for (let i = 0; i < 4; i++) rg.rbox(0.46 + i * 0.05, 0.05, 0.2, 0.02, 0, -i * 0.02, 0.05 + i * 0.19, i % 2 ? 0x7a2432 : 0x8a2b3a);
-  rg.rbox(0.5, 0.3, 0.06, 0.02, 0, -0.1, -0.02, 0x8a2b3a);
-  robe.add(meshOf(rg.build(), GFX.mat.cloth));
-  papa.robe = robe;
-  // gyrophare
-  const lampMat = new THREE.MeshStandardMaterial({ color: 0x331a00, emissive: 0xffa020, emissiveIntensity: 1.2, roughness: 0.3 });
-  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 10), lampMat);
-  lamp.position.set(0, 1.5, 1.0);
-  const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.1, 10), new THREE.MeshStandardMaterial({ color: 0x25272c, roughness: 0.5 }));
-  lampBase.position.set(0, 1.42, 1.0);
-  g.add(lamp, lampBase);
-  dad.light = lamp;
-  dad.scooter = scooter; dad.papa = papa; dad.w1 = w1; dad.w2 = w2;
-  dad.root = g;
-  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
+  bb.g("matte").rbox(1.22, 0.05, 0.42, 0.02, 0, 1.495, 0.2, 0x15171a);               // socle de la rampe de gyrophares
+  bb.g("metal").rbox(1.1, 0.03, 0.06, 0.01, 0, 1.47, 0.2 + 0.3, 0x2b2f36);
+  car.add(bb.finish());
+  // gyrophares : deux materiaux, un par couleur, animes dans policeFx()
+  const lampB = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.02, 0.05, 0.28), toneMapped: false });
+  const lampR = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.3, 0.02, 0.02), toneMapped: false });
+  const lamp = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.RoundedBoxGeometry(w, h, d, 2, Math.min(h, d) * 0.4), mat); m.position.set(x, y, z); m.userData.lamp = true; car.add(m); return m; };
+  lamp(0.54, 0.14, 0.34, lampB, -0.3, 1.58, 0.2);                                       // rampe de toit
+  lamp(0.54, 0.14, 0.34, lampR, 0.3, 1.58, 0.2);
+  lamp(0.24, 0.07, 0.04, lampB, -0.55, 0.56, -L / 2 - 0.02);                            // flasheurs de calandre
+  lamp(0.24, 0.07, 0.04, lampR, 0.55, 0.56, -L / 2 - 0.02);
+  lamp(0.34, 0.05, 0.1, lampB, -0.5, 0.87, 1.98);                                        // flasheurs de coffre
+  lamp(0.34, 0.05, 0.1, lampR, 0.5, 0.87, 1.98);
+  // lettrage
+  const sideMat = new THREE.MeshStandardMaterial({ map: GFX.tex.policeSide, transparent: true, roughness: 0.4, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -3, depthWrite: false });
+  [-1, 1].forEach((s) => { const p = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.33), sideMat); p.position.set(s * 0.915, 0.57, 0.05); p.rotation.y = s * Math.PI / 2; car.add(p); });
+  const hoodMat = new THREE.MeshStandardMaterial({ map: GFX.tex.policeHood, transparent: true, roughness: 0.4, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -3, depthWrite: false });
+  const hd = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.45), hoodMat); hd.position.set(0, 0.851, -1.2); hd.rotation.x = -Math.PI / 2; car.add(hd);
+  // calage : a 2,4 m (distance de capture) le pare-chocs avant touche l'arriere de la moto
+  car.position.z = 1.69;
+  g.add(car);
+  g.traverse((o) => { if (o.isMesh) o.castShadow = !o.userData.lamp && o.material !== sideMat && o.material !== hoodMat; });
   g.scale.setScalar(1.15);
   worldGroup.add(g);
+  const glow = new THREE.PointLight(0x2a5cff, 0, 30, 2);
+  glow.position.set(0, 3, 2);
+  worldGroup.add(glow);
+  dad.root = g; dad.car = car; dad.lampB = lampB; dad.lampR = lampR; dad.glow = glow;
 }
 
 /* ------------------------------- CAMION SSB ------------------------------- */

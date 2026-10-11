@@ -1,7 +1,7 @@
 "use strict";
 /* ============================================================================
    GAME FEEL — hit-stop, coups de camera, post-traitement reactif (nitro, degats),
-   animations de la moto / du pilote / de papa, traces de pneus, phares.
+   animations de la moto / du pilote / de la voiture de police, traces de pneus, phares.
    ============================================================================ */
 
 const feel = {
@@ -47,7 +47,7 @@ function landTrick(st) {
 // Voix enregistrees (facultatives) : deposer des .mp3 dans assets/voix/ (voir A_LIRE.txt).
 // Sans fichier, le jeu reste muet sur ce point : seules les bulles s'affichent.
 const VOICE = { clips: {}, loaded: false, last: 0 };
-const VOICE_FILES = ["papa-oscar", "papa-arthur", "papa-tom", "papa-yanis", "papa-clothilde", "papa-1", "papa-2", "papa-3", "papa-4", "papa-5", "copine", "principal", "victoire"];
+const VOICE_FILES = ["police-oscar", "police-arthur", "police-tom", "police-yanis", "police-clothilde", "police-1", "police-2", "police-3", "police-4", "police-5", "copine", "principal", "victoire"];
 function loadVoices() {
   if (VOICE.loaded) return;
   VOICE.loaded = true;
@@ -66,7 +66,8 @@ function playVoice(names) {
   try { a.currentTime = 0; a.volume = 0.95; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
   return true;
 }
-const DAD_LINES = ["REVIENS ICI !", "TON CARTABLE !", "T'AS OUBLIÉ TON GOÛTER !", "JE VAIS LE DIRE À MAMAN !", "PRIVÉ DE CONSOLE !", "ATTENDS-MOI !"];
+// repliques du haut-parleur de la voiture de police
+const DAD_LINES = ["POLICE ! ARRÊTE-TOI !", "RANGE-TOI SUR LE CÔTÉ !", "CASQUE OBLIGATOIRE !", "TROP VITE !", "PERMIS, S'IL TE PLAÎT !", "CONTRÔLE DE POLICE !", "TU VAS EN RETENUE !"];
 const _v = new THREE.Vector3();
 
 // niveau : "heavy" (camion), "medium" (manifestants, telephone), "light" (chat, cones...)
@@ -105,11 +106,11 @@ function applyPostFx(rawDt) {
   const danger = playing && st && !st.endSeq && (hp < 0.28 || dad.dist < 10) ? (0.1 + 0.07 * Math.sin(clockT * 7)) : 0;
   fx.tintAmt = clamp(feel.tint + danger, 0, 0.75);
   fx.tint.setRGB(0.9, 0.05, 0.03);
-  fx.vignette = 0.32 + feel.nitroK * 0.1 + (hp < 0.4 ? 0.1 : 0);
-  fx.exposure = 0.94 + feel.nitroK * 0.05 + feel.punch * 0.05;
+  fx.vignette = 0.4 + feel.nitroK * 0.1 + (hp < 0.4 ? 0.1 : 0);
+  fx.exposure = 0.98 + feel.nitroK * 0.05 + feel.punch * 0.05;
   const lost = st && st.endSeq && !st.endSeq.win;
   fx.desat = damp(fx.desat, lost ? 0.65 : 0, 2.5, rawDt);
-  fx.bloom = 0.3 + feel.nitroK * 0.12 + (st && st.endSeq && st.endSeq.win ? 0.15 : 0);
+  fx.bloom = 0.38 + feel.nitroK * 0.12 + (st && st.endSeq && st.endSeq.win ? 0.15 : 0);
 }
 
 /* ------------------------------- Phares & lueurs ------------------------------- */
@@ -144,7 +145,7 @@ function bikePostureFx(dt, nitroActive, st) {
   feel.crouch = damp(feel.crouch, crouchT, 5, dt);
   player.rider.rotation.x = -feel.crouch * 0.55 - th * 0.4;
   player.rider.rotation.z = damp(player.rider.rotation.z, -steer * 0.1, 6, dt);
-  // tete : regarde dans le virage, vers papa quand il est proche
+  // tete : regarde dans le virage, vers la voiture de police quand elle est proche
   const lookDad = dad.dist < 14 ? Math.sin(clockT * 3) * 0.5 : 0;
   player.head.rotation.y = damp(player.head.rotation.y, steer * -0.35 + lookDad, 7, dt);
   player.head.rotation.x = damp(player.head.rotation.x, 0.05 + feel.crouch * 0.3, 6, dt);
@@ -171,6 +172,10 @@ function bikeFx(dt, st, nitroActive) {
   while (exhaustAcc > 1) {
     exhaustAcc -= 1;
     smokePuff(ex + rnd(-0.05, 0.05), ey, ez, { s0: rnd(0.12, 0.24), ttl: rnd(0.35, 0.7), a0: 0.26, drag: 0.9 });
+  }
+  // poussiere doree soulevee par la roue arriere (la fumee doree de l'affiche)
+  if (player.grounded && sr > 0.25 && Math.random() < dt * (8 + sr * 24)) {
+    smokePuff(player.x + rnd(-0.35, 0.35), player.worldY - player.y + 0.1, player.z + 1.6, { s0: rnd(0.3, 0.55), r: 1, g: 0.7, b: 0.42, a0: 0.2, ttl: rnd(0.6, 1.1) });
   }
   // flamme + etincelles nitro
   if (nitroActive) {
@@ -208,19 +213,19 @@ function bikeFx(dt, st, nitroActive) {
   ambientFx(dt, clamp(player.speed / def.maxSpeed, 0, 1.4) * (nitroActive ? 1.25 : 1), player.x, player.z);
 }
 
-/* ----------------------------------- Papa ----------------------------------- */
-// Bulle de papa : il crie le prenom du pilote choisi ("OSCAAAR !!"), ou "ALLO ?" quand il decroche
+/* ------------------------------ Voiture de police ------------------------------ */
+// Bulle du haut-parleur : la police crie le prenom du pilote choisi ("OSCAAAR !!"), ou "ALLO QG ?" quand sa radio est brouillee
 const _bubbleTex = {};
 function bubbleTexture(text) {
   if (_bubbleTex[text]) return _bubbleTex[text];
   const c = cv(512, 192), x = c.getContext("2d");
-  x.fillStyle = "#fff"; x.strokeStyle = "#d62828"; x.lineWidth = 12;
+  x.fillStyle = "#fff"; x.strokeStyle = "#1646b8"; x.lineWidth = 12;
   x.beginPath(); x.moveTo(40, 20); x.lineTo(472, 20); x.quadraticCurveTo(496, 20, 496, 44); x.lineTo(496, 108); x.quadraticCurveTo(496, 132, 472, 132);
   x.lineTo(300, 132); x.lineTo(256, 176); x.lineTo(232, 132); x.lineTo(40, 132); x.quadraticCurveTo(16, 132, 16, 108); x.lineTo(16, 44); x.quadraticCurveTo(16, 20, 40, 20);
   x.fill(); x.stroke();
-  x.fillStyle = "#d62828"; x.textAlign = "center"; x.textBaseline = "middle";
+  x.fillStyle = "#1646b8"; x.textAlign = "center"; x.textBaseline = "middle";
   let fs = 74;
-  do { x.font = "900 " + fs + "px 'Arial Black', Impact, sans-serif"; fs -= 4; } while (x.measureText(text).width > 450 && fs > 30);
+  do { x.font = "900 " + fs + "px 'Arial Black', Impact, sans-serif"; fs -= 4; } while (x.measureText(text).width > 450 && fs > 22);
   x.fillText(text, 256, 76);
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding;
   _bubbleTex[text] = t;
@@ -243,28 +248,41 @@ function ensureDadBubble() {
     feel.dadBubbleT = clockT + 2.6;
     dad.line = Math.random() < 0.5 ? shoutName() : pick(DAD_LINES);
     if (dad.root && dad.root.visible && dad.dist < 20 && app === APP.RACE && clockT - VOICE.last > 3.5) {
-      if (playVoice(Math.random() < 0.5 ? ["papa-" + curPilot().id] : ["papa-1", "papa-2", "papa-3", "papa-4", "papa-5"])) VOICE.last = clockT;
+      if (playVoice(Math.random() < 0.5 ? ["police-" + curPilot().id] : ["police-1", "police-2", "police-3", "police-4", "police-5"])) VOICE.last = clockT;
     }
   }
-  const tex = bubbleTexture(dad.callT > 0 ? "ALLÔ ?…" : (dad.line || shoutName()));
+  const tex = bubbleTexture(dad.callT > 0 ? "ALLÔ QG ?…" : (dad.line || shoutName()));
   if (dad.bubble.material.map !== tex) { dad.bubble.material.map = tex; dad.bubble.material.needsUpdate = true; }
+}
+// Gyrophares : double eclair bleu puis double eclair rouge, comme une vraie rampe. Le PointLight
+// de la voiture prend la couleur du flash en cours et peint la route et la moto en bleu / rouge.
+function policeFx(dt) {
+  if (!dad.lampB) return;
+  const p = (clockT * 2.4) % 1;
+  const b = (p < 0.1 || (p > 0.17 && p < 0.27)) ? 1 : 0;
+  const r = ((p > 0.5 && p < 0.6) || (p > 0.67 && p < 0.77)) ? 1 : 0;
+  dad.lampB.color.setRGB(0.02 + b * 0.35, 0.05 + b * 0.9, 0.28 + b * 5.5);
+  dad.lampR.color.setRGB(0.3 + r * 5.5, 0.02 + r * 0.25, 0.02 + r * 0.2);
+  const vis = dad.root.visible && (app === APP.RACE || app === APP.WIN || app === APP.LOSE);
+  const near = clamp(1 - (dad.dist - 4) / 24, 0, 1);
+  const on = b || r;
+  if (b) dad.glow.color.setRGB(0.16, 0.36, 1);
+  else if (r) dad.glow.color.setRGB(1, 0.1, 0.07);
+  dad.glow.intensity = damp(dad.glow.intensity, vis && on ? 10 + 28 * near : 0, 60, dt);
+  dad.glow.position.set(dad.root.position.x, 2.5, dad.root.position.z + 2.2);
 }
 function dadFx(dt) {
   ensureDadBubble();
-  const papa = dad.papa;
-  if (papa && papa.robe) papa.robe.rotation.x = -0.1 + Math.sin(clockT * 15) * 0.13 - clamp(dad.speed / 45, 0, 1.2) * 0.5;
-  if (papa) {
-    papa.armL.rotation.x = Math.sin(clockT * 9) * 0.35;
-    papa.head.rotation.z = Math.sin(clockT * 6) * 0.08;
-  }
+  policeFx(dt);
   const near = dad.root.visible && (dad.dist < 18 || dad.callT > 0);
   dad.bubble.visible = near && app === APP.RACE;
   if (dad.bubble.visible) {
-    dad.bubble.position.set(dad.root.position.x, 4.6 + Math.sin(clockT * 6) * 0.1, dad.root.position.z);
+    dad.bubble.position.set(dad.root.position.x, 4.1 + Math.sin(clockT * 6) * 0.1, dad.root.position.z + 1.6);
     const s = 1 + 0.06 * Math.sin(clockT * 9);
     dad.bubble.scale.set(3.4 * s, 1.28 * s, 1);
   }
-  if (near && Math.random() < dt * 14) { // vapeur aux oreilles
-    smokePuff(dad.root.position.x + rnd(-0.3, 0.3), 3.3, dad.root.position.z + 0.3, { s0: 0.22, r: 1, g: 0.55, b: 0.45, a0: 0.45, ttl: 0.5 });
+  // pot d'echappement : petit nuage derriere la voiture, plus fourni quand elle accelere
+  if (dad.root.visible && Math.random() < dt * (6 + clamp(dad.speed / 8, 0, 6))) {
+    smokePuff(dad.root.position.x + rnd(-0.5, 0.5), 0.35, dad.root.position.z + 4.6, { s0: 0.22, r: 0.85, g: 0.82, b: 0.8, a0: 0.3, ttl: 0.6 });
   }
 }

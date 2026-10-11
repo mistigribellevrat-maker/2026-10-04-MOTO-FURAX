@@ -1,0 +1,9 @@
+MUSIQUES DU JEU
+===============
+  musique_accueil_menu.mp3   écran d'accueil + menu principal (en boucle)
+  musique_en_jeu.mp3         pendant la course (en boucle ; elle accélère très légèrement quand la police est tout près)
+
+Pour changer de musique : remplace simplement le fichier (même nom), ou modifie
+CFG.MUSIC dans js/00-utils.js. Si un fichier est absent, le jeu utilise une
+musique de secours générée par le code.
+La musique démarre au premier clic / à la première touche (règle des navigateurs).

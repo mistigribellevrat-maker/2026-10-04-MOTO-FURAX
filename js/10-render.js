@@ -134,8 +134,8 @@ const COMPOSITE_FS = [
   "  col = toSRGB(col);",
   // etalonnage : ombres froides / hautes lumieres chaudes, contraste, saturation
   "  float l = dot(col, vec3(0.299, 0.587, 0.114));",
-  "  col = mix(col, col * uShadowTint, (1.0 - smoothstep(0.0, 0.55, l)) * 0.55);",
-  "  col = mix(col, col * uHighTint,   smoothstep(0.45, 1.0, l) * 0.5);",
+  "  col = mix(col, col * uShadowTint, (1.0 - smoothstep(0.0, 0.55, l)) * 0.65);",
+  "  col = mix(col, col * uHighTint,   smoothstep(0.4, 1.0, l) * 0.6);",
   "  col = (col - 0.5) * uContrast + 0.5;",
   "  float l2 = dot(col, vec3(0.299, 0.587, 0.114));",
   "  col = mix(vec3(l2), col, uSat);",
@@ -159,9 +159,9 @@ const RENDER = {
   mats: {}, ema: 16.7, slowT: 0, fastT: 0, lastAdjust: 0, frames: 0, time: 0,
   shadowRefresh: null,
   fx: {
-    exposure: 0.94, bloom: 0.3, bloomThreshold: 1.85, vignette: 0.32, aberration: 0.0006,
+    exposure: 0.98, bloom: 0.38, bloomThreshold: 1.6, vignette: 0.4, aberration: 0.0006,
     radial: 0, tilt: 0.5, tiltFocus: 0.3, tiltBand: 0.2, blurPx: 2.6, grain: 0.022,
-    sat: 1.1, contrast: 1.07, tint: new THREE.Color(1, 0.1, 0.05), tintAmt: 0, desat: 0,
+    sat: 1.18, contrast: 1.1, tint: new THREE.Color(1, 0.1, 0.05), tintAmt: 0, desat: 0,
     cx: 0.5, cy: 0.45
   },
 
@@ -215,7 +215,7 @@ const RENDER = {
       uTilt: U(0.6), uTiltFocus: U(0.3), uTiltBand: U(0.15), uBlurPx: U(3),
       uGrain: U(0.02), uSat: U(1), uContrast: U(1), uTintAmt: U(0), uDesat: U(0), uHasBloom: U(1),
       uCenter: U(new THREE.Vector2(0.5, 0.45)), uTint: U(new THREE.Color(1, 0, 0)),
-      uShadowTint: U(new THREE.Vector3(0.97, 1.0, 1.05)), uHighTint: U(new THREE.Vector3(1.05, 1.0, 0.93))
+      uShadowTint: U(new THREE.Vector3(0.88, 0.98, 1.12)), uHighTint: U(new THREE.Vector3(1.1, 1.0, 0.86))
     });
     this.applyLevel(this.level, true);
     return renderer;
