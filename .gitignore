@@ -6,3 +6,4 @@ node_modules/
 api/data/*.json
 api/data/*.tmp*
 api/data/.lock
+tests/captures/

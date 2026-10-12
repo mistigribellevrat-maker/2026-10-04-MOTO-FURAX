@@ -767,6 +767,55 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await p2.close();
   });
 
+  /* ---------------------------- MOBILE ---------------------------- */
+  await test("Mobile : telephone a l'horizontale (iPhone 750×340) et a la verticale", async () => {
+    const ctx = await browser.newContext({ viewport: { width: 750, height: 340 }, hasTouch: true, isMobile: true });
+    const p3 = await ctx.newPage();
+    const errs = [];
+    p3.on("pageerror", (e) => errs.push(e.message));
+    const e3 = (fn, a) => p3.evaluate(fn, a);
+    await p3.goto(base, { waitUntil: "commit", timeout: 120000 });
+    await p3.waitForFunction(() => window.MF && MF.ready, null, { timeout: 240000 });
+    // tous les boutons de l'ecran du dessus sont entierement visibles et cliquables (rien sous un autre calque)
+    const reach = (sel) => e3((s) => {
+      const W = innerWidth, H = innerHeight, bad = [];
+      document.querySelectorAll(s).forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (!r.width) return;
+        const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        if (r.top < -1 || r.left < -1 || r.bottom > H + 1 || r.right > W + 1 || !t || !(el.contains(t) || t.contains(el))) bad.push((el.id || el.className) + " " + [r.left, r.top, r.right, r.bottom].map(Math.round));
+      });
+      return bad;
+    }, sel);
+    await e3(() => enterGate()); await p3.waitForTimeout(800);
+    ok((await reach("#btn-play")).length === 0, "accueil : JOUER visible", await reach("#btn-play"));
+    const pr = await e3(() => { const a = document.getElementById("home-poster").getBoundingClientRect(), b = document.querySelector("#screen-home .game-title").getBoundingClientRect(); return { posterRight: a.right, titleLeft: b.left, top: a.top, bottom: a.bottom }; });
+    ok(pr.posterRight <= pr.titleLeft && pr.top >= 0 && pr.bottom <= 340, "accueil : l'affiche a gauche ne chevauche pas le titre", pr);
+    await e3(() => setApp(APP.MENU)); await p3.waitForTimeout(300);
+    ok((await reach("#screen-menu button")).length === 0, "menu : tous les boutons accessibles", await reach("#screen-menu button"));
+    await e3(() => openPilotSelect()); await p3.waitForTimeout(400);
+    ok((await reach("#pilot-grid .pilot-card, #btn-pilot-go, #btn-pilot-close, .aid-chip")).length === 0, "choix du pilote : cartes, aide et boutons visibles", await reach("#pilot-grid .pilot-card, #btn-pilot-go, #btn-pilot-close, .aid-chip"));
+    await e3(() => { closeModal(); renderShop(); openModal("modal-shop"); }); await p3.waitForTimeout(400);
+    ok((await reach("#btn-shop-close")).length === 0, "boutique : RETOUR visible", await reach("#btn-shop-close"));
+    await e3(() => { closeModal(); openModal("modal-load"); }); await p3.waitForTimeout(400);
+    ok((await reach("#btn-load-confirm, #btn-load-close")).length === 0, "charger : boutons visibles", await reach("#btn-load-confirm, #btn-load-close"));
+    await e3(() => { closeModal(); MF.debug.noObstacles(true); MF.debug.god(); MF.startRace(); MF.debug.advance(4.3); }); await p3.waitForTimeout(300);
+    ok((await reach(".mc-btn, #btn-pause")).length === 0, "course : commandes tactiles accessibles", await reach(".mc-btn, #btn-pause"));
+    ok(await e3(() => [...document.querySelectorAll(".mc-btn")].every((b) => { const r = b.getBoundingClientRect(); return r.width >= 44 && r.height >= 44; })), "course : boutons tactiles d'au moins 44 px");
+    await e3(() => pauseRace()); await p3.waitForTimeout(300);
+    ok((await reach("#screen-pause button")).length === 0, "pause : boutons accessibles", await reach("#screen-pause button"));
+    await e3(() => { resumeRace(); MF.debug.win(); MF.debug.advance(3); }); await p3.waitForTimeout(700);
+    ok((await reach("#btn-replay, #btn-end-menu")).length === 0, "fin de course : REJOUER et MENU visibles", await reach("#btn-replay, #btn-end-menu"));
+    // a la verticale : invitation a tourner le telephone, et la course se met en pause
+    await e3(() => replay()); await e3(() => MF.debug.advance(4.3)); await p3.waitForTimeout(200);
+    ok(await e3(() => MF.state) === "RACE" && await e3(() => getComputedStyle(document.getElementById("rotate")).display) === "none", "a l'horizontale : pas d'invitation, la course tourne");
+    await p3.setViewportSize({ width: 340, height: 750 }); await p3.waitForTimeout(400);
+    ok(await e3(() => getComputedStyle(document.getElementById("rotate")).display) !== "none", "a la verticale : ecran « Tourne ton telephone »");
+    ok(await e3(() => MF.state) === "PAUSE", "a la verticale : la course se met en pause");
+    ok(errs.length === 0, "aucune erreur", errs);
+    await ctx.close();
+  });
+
   await browser.close();
   server.close();
   const pass = results.filter((r) => r.pass).length, fail = results.length - pass;

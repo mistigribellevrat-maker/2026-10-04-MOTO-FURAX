@@ -25,6 +25,7 @@ function setApp(next) {
   if (next === APP.RACE || next === APP.COUNTDOWN) { three.visible = true; }
   if (next === APP.WIN || next === APP.LOSE) { /* le fond reste la scene 3D figee */ }
   if (prev === APP.PAUSE && next === APP.RACE) audio.resume();
+  if (next === APP.RACE && phonePortrait()) setTimeout(pauseRace, 0);   // telephone a la verticale : pas de course a l'aveugle
   // musique : le morceau d'accueil continue dans le menu, celui de la course demarre au compte a rebours,
   // attenue en pause, fondu a la fin (la fanfare / le gong prennent la suite)
   // bruits de moto : coupes partout ou la moto ne roule pas (sinon le dernier ronflement reste fige : arrivee, menu, pause)
@@ -66,12 +67,34 @@ function enterGate() {
   gateUp = false;
   audio.init(); audio.resume(); audio.uiBig();
   music.start("menu"); music.unlock();
+  lockLandscape();
   const g = $("screen-gate");
   g.classList.add("leaving");
   setTimeout(() => g.classList.add("hidden"), 700);
   screens.home.classList.remove("enter"); void screens.home.offsetWidth; screens.home.classList.add("enter");
 }
 $("btn-enter").addEventListener("click", enterGate);
+
+// Telephone : le jeu se joue a l'horizontale. A la verticale, le CSS affiche « Tourne ton telephone »
+// et la course se met en pause. Sur Android, plein ecran + paysage verrouille (seulement apres un clic ;
+// iOS ne le permet pas : l'ecran d'invitation suffit).
+const portraitMQ = window.matchMedia("(orientation: portrait) and (pointer: coarse) and (max-width: 700px)");
+function phonePortrait() { return portraitMQ.matches; }
+function onPortraitChange() { if (portraitMQ.matches && app === APP.RACE) pauseRace(); }
+if (portraitMQ.addEventListener) portraitMQ.addEventListener("change", onPortraitChange); else portraitMQ.addListener(onPortraitChange);
+function canLockLandscape() {
+  const el = document.documentElement;
+  return !!((el.requestFullscreen || el.webkitRequestFullscreen) && screen.orientation && screen.orientation.lock);
+}
+function lockLandscape() {
+  if (!window.matchMedia("(pointer: coarse)").matches || !canLockLandscape()) return;
+  const lock = () => { try { screen.orientation.lock("landscape").catch(() => {}); } catch (e) { /* refuse : rien a faire */ } };
+  if (document.fullscreenElement || document.webkitFullscreenElement) { lock(); return; }
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  try { const p = req.call(el, { navigationUI: "hide" }); if (p && p.then) p.then(lock, () => {}); else lock(); } catch (e) { /* refuse */ }
+}
+$("btn-rotate-fs").classList.toggle("hidden", !canLockLandscape());
+$("btn-rotate-fs").addEventListener("click", lockLandscape);
 
 /* ------------------------------ 5. ENTREES ------------------------------- */
 const input = { up: false, down: false, left: false, right: false, nitro: false, jumpQueued: false, jumpHeld: false, powerQueued: false };

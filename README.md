@@ -75,6 +75,10 @@ Sécurité et entretien :
 - Les fantômes et records du défi du jour sont effacés au bout de 4 jours.
 - Mets le site en **HTTPS** (gratuit chez OVH) : c'est ce qu'attendent les navigateurs pour le son et les envois.
 
+## Sur téléphone et tablette
+
+Le jeu se joue **à l'horizontale**. Téléphone tenu à la verticale : un écran « Tourne ton téléphone » s'affiche et la course se met en pause. Sur Android, toucher **ENTRER** passe en plein écran et verrouille l'écran à l'horizontale (iPhone : il suffit de tourner le téléphone). Tous les écrans sont adaptés aux petits écrans en paysage, avec l'encoche prise en compte.
+
 ## Lancer le jeu
 
 Double-clique sur **`index.html`** (aucune installation, aucun serveur, fonctionne hors-ligne).

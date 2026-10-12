@@ -1,47 +1,30 @@
 # MOTO FURAX — reste à faire (état au 2026-10-12)
 
-Branche de travail : `claude/lot1-finitions` (commit `ba5c914` = lot 1).
-**Non commité** (fait, testé, recette 203/203) : voiture folle + fluidité, voir « Fait » ci-dessous.
-À la reprise : relire ce fichier, faire `git status`, commiter ces changements si OK.
+Branche de travail : `claude/inspiring-brown-y5nlty`. Recette : **217/217** (`cd tests && node acceptance.js`).
 
-## Fait (non commité)
-- Voiture folle : ne vise plus la moto (changements de file au hasard, annoncés par crissement/fumée,
-  esquivable). `js/33-events.js`, test réécrit dans `tests/acceptance.js`.
-- Saccades (1 % low 17,8 → ~49 FPS sur PC) :
-  - `js/38-warmup.js` (nouveau) : préchauffage des shaders au chargement + programmes « épinglés »
-    (three.js les détruisait au recyclage des tronçons → recompilation en course).
-  - Humains en cache + clones (`buildHuman` / `buildHumanRig`, pools par rôle), chat cloné, texture « ! » partagée.
-  - Camion : `userData` allégé (clone() recopiait 1,5 Mo de JSON → 6 ms par camion).
-  - Coût : chargement +1,9 s sur PC (étape « Préparation des effets »).
-  - Test ajouté : « Fluidite : rien n'est compile ni construit en pleine course ».
+## Fait
+- Lot 1 (effets, dangers annoncés, relance rapide), voiture folle esquivable, fluidité PC (préchauffage
+  des shaders, humains clonés) : commités le 12/10.
+- **Mobile / responsive (lot « priorité 1 »)** :
+  - Téléphone à la verticale : écran « Tourne ton téléphone » (`#rotate`, CSS
+    `(orientation:portrait) and (pointer:coarse) and (max-width:700px)`), la course se met en pause.
+    Android : plein écran + paysage verrouillé au clic sur ENTRER (ou bouton PLEIN ÉCRAN de l'invitation).
+    iOS ne permet pas le verrouillage : l'invitation suffit.
+  - Paysage bas (`@media (orientation:landscape) and (max-height:520px)`, bloc « v5 » à la fin de `css/style.css`) :
+    entrée compacte ; accueil avec l'affiche à gauche et titre/texte/JOUER à droite ; menu en 2 colonnes
+    (boutons / infos et réglages) ; choix du pilote compact (sans stats ni chemins de photos, barre d'actions
+    sous la grille) ; boutique et charger compacts ; pause en 2×2 ; fin de course avec 6 stats sur une ligne,
+    étoiles en ligne, boutons collés en bas ; mode photo sur une ligne ; marqueur « VOITURE FOLLE » et
+    alertes déplacés hors des panneaux.
+  - Boutique : la grille défile et RETOUR reste visible partout (y compris tablette et PC 720p).
+  - Encoche : `viewport-fit=cover` + `env(safe-area-inset-*)` sur le HUD, les commandes et les écrans.
+  - Tactile : aide clavier masquée, réglages du menu plus hauts (≥ 40 px), boutons de course ≥ 44 px.
+  - Test « Mobile : téléphone à l'horizontale (iPhone 750×340) et à la verticale » ajouté.
+  - Outil : `tests/screens.js` (captures de 10 écrans × 5 tailles + détection des débordements, dans `tests/captures/`).
 
 ## Reste à faire, par priorité
-1. **Mobile / responsive (demandé, prioritaire)** — rien n'est encore modifié :
-   - Forcer le paysage : écran « Tourne ton téléphone » en portrait (`@media (orientation:portrait) and (pointer:coarse)`),
-     + `screen.orientation.lock("landscape")` en plein écran sur Android (iOS ne le permet pas).
-   - Accueil en paysage : l'affiche sur le côté (gauche), titre/texte/JOUER à droite ; aujourd'hui l'affiche
-     chevauche le titre sur iPhone (capture fournie par l'utilisateur).
-   - Revoir tous les écrans sur petits écrans paysage (iPhone 750×340 avec barre Safari, Android 740×360) :
-     entrée, menu, choix du pilote, boutique, charger, pause, fin, mode photo, HUD (marqueur « VOITURE FOLLE »
-     qui chevauche le panneau intégrité), zones sûres (encoche), boutons tactiles ≥ 44 px.
-   - **Constats des captures (iPhone 750×340 avec barre Safari, Android 740×360)** :
-     - MENU : le panneau est centré verticalement et déborde en haut → titre « MENU PRINCIPAL »,
-       DÉBUTER et CHARGER **hors écran, inaccessibles**. Il faut un menu en 2 colonnes (boutons à gauche,
-       infos/réglages à droite) ou un défilement, et masquer la ligne d'aide clavier sur écran tactile.
-     - CHOIX DU PILOTE : la ligne « AIDE » et les boutons C'EST PARTI / RETOUR recouvrent les cartes
-       (surnoms et stats illisibles) ; les photos manquantes affichent le chemin `assets/pilotes/*.jpg`
-       en texte coupé. Réduire les cartes en paysage bas, cacher les stats, barre d'actions sous la grille.
-     - BOUTIQUE : la grille déborde en bas (bouton RETOUR inaccessible, même sur tablette 1024×768).
-     - FIN DE COURSE : le titre et les boutons REJOUER / MENU sont hors écran (haut et bas) ;
-       grille de stats trop grande → 6 stats sur une ligne compacte, étoiles en ligne, boutons visibles.
-     - ENTRÉE : la ligne du haut et l'aide du bas sont légèrement coupées.
-     - COURSE : correct, mais boutons tactiles larges ; le « VOITURE FOLLE » chevauche le panneau intégrité.
-     - PAUSE : correct.
-     - PORTRAIT : à remplacer par l'écran « Tourne ton téléphone ».
-     - Règle générale : écrans en `max-height` + `overflow:auto`, `@media (max-height:520px)` pour le
-       paysage bas, `env(safe-area-inset-*)` pour l'encoche.
-   - Outil prêt : script de captures multi-écrans (à recréer dans le scratchpad, cf. `screens.js` :
-     5 tailles × 8 écrans + détection des débordements). Skill : `threejs-game-ui-designer`.
+1. **Vérifier sur de vrais téléphones** (iPhone Safari avec et sans barre, Android Chrome en plein écran) :
+   encoche réelle, verrouillage du paysage, confort des boutons tactiles. Retoucher si besoin.
 2. **Fluidité mobile (lot 2 restant)** : à CPU ×4, ~30 FPS en charge de fond (rendu 500-700 draw calls).
    - Retirer `backdrop-filter` du HUD de course (css ~l.168-415).
    - `castShadow=false` sur façades/devantures/toits/pancartes (`22-buildings.js` BB.finish).

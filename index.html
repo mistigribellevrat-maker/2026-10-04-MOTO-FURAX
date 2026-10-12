@@ -2,7 +2,10 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0504">
 <title>MOTO FURAX — La Course au Collège</title>
 <meta name="description" content="MOTO FURAX : aide ton pilote à rejoindre son collège avant la sonnerie, en moto, à travers une ville pleine d'obstacles.">
 <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%23ff4d00"/><text x="32" y="43" font-size="26" font-family="Arial Black,sans-serif" font-weight="900" fill="white" text-anchor="middle">MF</text></svg>'>
@@ -12,6 +15,14 @@
 
 <!-- filtre "peinture seche" : bords irreguliers du titre, comme le lettrage de l'affiche -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="rough" x="-6%" y="-14%" width="112%" height="128%"><feTurbulence type="fractalNoise" baseFrequency="0.028 0.11" numOctaves="3" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
+
+<!-- telephone tenu a la verticale : le jeu se joue a l'horizontale (affiche par le CSS, course mise en pause) -->
+<div id="rotate" aria-live="polite">
+  <div class="rot-phone" aria-hidden="true"><i></i></div>
+  <b>TOURNE TON TÉLÉPHONE</b>
+  <p>MOTO FURAX se joue à l'horizontale.</p>
+  <button id="btn-rotate-fs" class="btn btn-cyan hidden" type="button">PLEIN ÉCRAN</button>
+</div>
 
 <div id="loading"><div class="ld-box"><div class="ld-title">MOTO <b>FURAX</b></div><div class="ld-slogan">Friends · Speed · No limits</div><div class="ld-bar"><i id="ld-fill"></i></div><div id="ld-text">Chargement…</div></div></div>
 
@@ -142,6 +153,7 @@
       <button id="btn-shop" class="btn btn-cyan btn-block" type="button">BOUTIQUE</button>
       <button id="btn-quit" class="btn btn-danger btn-block" type="button">QUITTER</button>
     </div>
+    <div class="menu-side">
     <div class="menu-foot">
       <span>Record famille : <b id="menu-best">--</b></span>
       <span>Étoiles : <b id="menu-score">0 ★</b></span>
@@ -158,6 +170,7 @@
     </div>
     <div class="menu-foot menu-foot-2">
       <span class="hint-keys">Flèches / ZQSD · Espace saut · Suppr (ou Maj) nitro · E pouvoir · en l'air : Espace + ◀ ▶ = figure</span>
+    </div>
     </div>
   </div>
 </div>
