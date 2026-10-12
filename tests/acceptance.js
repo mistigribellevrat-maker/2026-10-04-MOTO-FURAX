@@ -652,6 +652,56 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await ev(() => { MF.debug.key("nitro", false); MF.debug.advance(3); });
     ok(await ev(() => MF.game.nitro) > 10, "la jauge se recharge");
   });
+  /* ------------------- AVERTISSEMENTS, RELANCE, FINITIONS ------------------- */
+  await test("Chat : attend sur sa voie et ne traverse qu'a l'approche de la moto", async () => {
+    await fresh(true);
+    // reference directe : un recyclage de troncons retire des entites du tableau (les index bougent)
+    const x0 = await ev(() => { window.__cat = MF.ents[MF.debug.spawn("cat", 0, -150)]; return __cat.obj.position.x; });
+    await ev(() => MF.debug.advance(2));
+    ok(await ev(() => __cat.state === "wait" && !__cat.dead), "loin de la moto : il attend (il ne traverse pas 400 m trop tot)");
+    ok(await ev(() => __cat.obj.position.x) === x0, "il reste a sa place tant qu'il attend");
+    await ev(() => { MF.debug.teleport(__cat.z + 20); MF.debug.advance(0.1); });
+    ok(await ev(() => __cat.state) === "cross", "a l'approche de la moto : il s'elance");
+  });
+  await test("Copine : le geste d'armement precede toujours le lancer", async () => {
+    await fresh(true);
+    await ev(() => { window.__gf = MF.ents[MF.debug.spawn("girlfriend", 0, -200)]; });
+    await ev(() => MF.debug.advance(3));
+    ok(await ev(() => !MF.ents.some((e) => e.type === "phone")), "loin de la moto : aucun lancer (le compte a rebours n'a pas couru)");
+    await ev(() => { MF.debug.teleport(__gf.z + 30); MF.debug.advance(0.3); });
+    ok(await ev(() => !MF.ents.some((e) => e.type === "phone")), "0,3 s apres l'entree dans la zone : elle arme encore (pas de lancer surprise)");
+    await ev(() => MF.debug.advance(1.0));
+    ok(await ev(() => MF.ents.some((e) => e.type === "phone")), "puis elle lance");
+  });
+  await test("Relance rapide : R sur l'ecran de fin, compte a rebours court", async () => {
+    await fresh();
+    await ev(() => { MF.debug.lose("police"); MF.debug.advance(1.2); });
+    ok(await ev(() => MF.state) === "LOSE", "ecran de defaite en ~1 s");
+    await page.keyboard.press("KeyR");
+    ok(await ev(() => MF.state) === "COUNTDOWN", "R relance depuis l'ecran de fin");
+    await ev(() => MF.debug.advance(1.7));
+    ok(await ev(() => MF.state) === "RACE", "relance : course lancee en 1,6 s");
+    await ev(() => { MF.startRace(); MF.debug.advance(1.7); });
+    ok(await ev(() => MF.state) === "COUNTDOWN", "depuis le menu : compte a rebours complet (3, 2, 1)");
+    await ev(() => MF.debug.advance(2.6));
+  });
+  await test("Onglet masque en pleine course : pause automatique", async () => {
+    await fresh();
+    await ev(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => true }); document.dispatchEvent(new Event("visibilitychange")); delete document.hidden; });
+    ok(await ev(() => MF.state) === "PAUSE", "la course passe en pause (sirene et moteur coupes)");
+    await ev(() => resumeRace());
+  });
+  await test("Finitions : bandeaux et effets", async () => {
+    await ev(() => showAlert("BLOQUÉ PAR LES MANIFESTANTS !"));
+    ok(await ev(() => document.getElementById("hud-alert").textContent.endsWith(" !")), "le « ! » reste colle au mot (espace insecable)");
+    const seen = {}, dup = [];
+    fs.readdirSync(path.join(ROOT, "js")).filter((f) => f.endsWith(".js")).forEach((f) => {
+      const src = fs.readFileSync(path.join(ROOT, "js", f), "utf8");
+      for (const m of src.matchAll(/^function\s+([A-Za-z0-9_$]+)/gm)) { if (seen[m[1]]) dup.push(m[1] + " (" + seen[m[1]] + ", " + f + ")"); else seen[m[1]] = f; }
+    });
+    ok(dup.length === 0, "aucune fonction globale definie deux fois (la seconde ecraserait la premiere)", dup);
+    ok(await ev(() => /fxGlow/.test(updateParticles.toString()) && /fxWind/.test(updateParticles.toString())), "lueurs, lignes de vitesse et poussiere sont animees");
+  });
   await test("Performance (indicative) : appels de rendu et triangles", async () => {
     await fresh(true);
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(4); MF.debug.frame(); });

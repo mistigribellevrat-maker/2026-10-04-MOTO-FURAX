@@ -272,11 +272,22 @@ function makeCat() {
   g.add(ex);
   const e = regEnt(g, { type: "cat", level: "LOW", hw: 0.4, hl: 0.55, hh: 0.72, damage: 6, dyn: true });
   e.dir = Math.random() < 0.5 ? 1 : -1;
-  e.state = "cross"; e.t = 0; e.speed = rnd(4.4, 6.2);
+  e.state = "wait"; e.t = 0; e.speed = rnd(4.4, 6.2);
   e.update = (ent, dt, P) => {
     ent.t += dt;
     const body = c.body;
-    if (ent.state === "cross") {
+    if (ent.state === "wait") {
+      // assis sur sa voie, la queue bat : il ne s'elance qu'a ~1,1 s de la moto (sinon il traverserait 400 m trop tot)
+      ent.obj.rotation.y = ent.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
+      body.rotation.x = -0.5; body.position.y = 0.2;
+      c.head.rotation.x = 0.5;
+      c.tail.rotation.z = Math.sin(ent.t * 4) * 0.4;
+      const distZ = P.z - ent.z;
+      if (distZ > 0 && distZ < clamp(10 + (P.speed || 0) * 1.1, 24, 75)) {
+        ent.state = "cross"; ent.t = 0;
+        body.rotation.x = 0; c.head.rotation.x = 0; c.tail.rotation.z = 0;
+      }
+    } else if (ent.state === "cross") {
       ent.obj.position.x += ent.dir * ent.speed * dt;
       ent.obj.rotation.y = ent.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
       const w = ent.t * 18;
@@ -284,7 +295,7 @@ function makeCat() {
       body.position.y = 0.3 + Math.abs(Math.sin(w)) * 0.06;
       body.rotation.x = Math.sin(w) * 0.08;
       c.tail.rotation.x = -0.6 + Math.sin(w * 0.5) * 0.25;
-      ex.visible = Math.abs(ent.obj.position.x - ent.spawnX) < 1.6 && Math.abs(ent.z - P.z) < 40;
+      ex.visible = ent.t < 0.75;
       if (Math.abs(ent.obj.position.x - ent.spawnX) > 8.2) { ent.state = "sit"; ent.sitT = 1.6; ex.visible = false; }
     } else if (ent.state === "sit") {
       ent.obj.rotation.y = ent.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
@@ -312,7 +323,7 @@ function makeGirlfriend() {
   phone.position.set(h.armR.position.x + wrR[0], h.armR.position.y + wrR[1] + 0.08, wrR[2] - 0.04);
   h.hips.add(phone);
   const e = regEnt(g, { type: "girlfriend", level: "LOW", hw: 0.5, hl: 0.5, hh: 2.0, damage: 0 });
-  e.throwT = rnd(0.4, 1.2); e.hasThrown = false;
+  e.throwT = rnd(1.0, 1.15); e.hasThrown = false;
   e.update = (ent, dt, P, t) => {
     const dx = P.x - ent.x, dz = P.z - ent.z;
     ent.obj.rotation.y = Math.atan2(dx, dz) + Math.PI;
@@ -320,9 +331,10 @@ function makeGirlfriend() {
     h.armL.rotation.z = Math.sin(t * 7) * 0.3;
     h.hips.position.y = 0.9 + Math.abs(Math.sin(t * 3)) * 0.03;
     const distZ = P.z - ent.z;            // > 0 : elle est devant la moto
-    ent.throwT -= dt;
-    if (!ent.hasThrown && distZ > 6 && distZ < 44) {
-      ent.throwT -= dt * 3;
+    // l'armement (~0,7 s, bien visible) ne commence que quand la moto approche ; plus elle va vite, plus tot
+    const armDist = clamp(8 + (P.speed || 0) * 1.25, 34, 80);
+    if (!ent.hasThrown && distZ > 6 && distZ < armDist) {
+      ent.throwT -= dt * 1.25;
       // armement du bras puis lancer
       const k = clamp(1 - ent.throwT / 1.0, 0, 1);
       h.armR.rotation.x = k < 0.8 ? -k * 1.9 : -1.5 + (k - 0.8) * 20;

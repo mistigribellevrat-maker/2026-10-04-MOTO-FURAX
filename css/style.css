@@ -229,6 +229,8 @@ body.f12 #hud{display:none!important}
 #hud-alert.on{opacity:1;transform:translateX(-50%) scale(1)}
 #hud-alert.cyan{background:rgba(40,110,190,.92);box-shadow:0 0 40px rgba(120,185,255,.6)}
 #hud-alert.gold{background:rgba(190,140,10,.94);box-shadow:0 0 40px rgba(255,197,49,.6)}
+/* ecran peu haut (mobile a l'horizontale) : bandeau compact, pour ne pas masquer la route devant la moto */
+@media (max-height:520px){#hud-alert{top:28.5%;font-size:.92rem;padding:6px 16px;letter-spacing:.05em;border-width:1px;max-width:70vw}}
 #hud-pickup{position:absolute;bottom:17%;left:50%;transform:translateX(-50%);font-family:var(--font-d);font-weight:900;font-size:1.05rem;
   letter-spacing:.1em;color:#fff;text-shadow:0 0 18px rgba(120,185,255,.8);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
 #hud-pickup.on{opacity:1;transform:translateX(-50%) translateY(-14px)}

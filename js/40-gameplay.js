@@ -30,7 +30,8 @@ function flash(kind, dur) {
 function addShake(amp) { shake.amp = Math.min(1.6, shake.amp + amp); }
 function showAlert(text, cls, dur) {
   const el = $("hud-alert");
-  el.textContent = text;
+  // espace insecable avant la ponctuation haute : le « ! » ne part jamais seul a la ligne
+  el.textContent = String(text).replace(/ ([!?:;])/g, " $1");
   el.className = "on " + (cls || "");
   clearTimeout(el._t);
   el._t = setTimeout(() => { el.className = ""; }, dur || 1500);
@@ -92,7 +93,9 @@ function rebuildAllChunks(demo) {
     layoutChunk(ch, i, demo);
   });
 }
-function startRace() {
+// quick === true : relance depuis l'ecran de fin ou R (compte a rebours court). Attention : sert aussi de
+// gestionnaire de clic, le premier argument peut etre un evenement.
+function startRace(quick) {
   audio.init(); audio.resume(); audio.uiBig();
   if (player.builtBike !== save.bike || player.builtPilot !== save.pilot) buildPlayer();
   audio.setSiren(0, 0.05);
@@ -114,8 +117,9 @@ function startRace() {
   camera.rotation.z = 0;
   hudCache.cdgo = 0;
   setApp(APP.COUNTDOWN);
-  countdownT = 3.6;
-  setCountdownText("3");
+  countdownQuick = quick === true;
+  countdownT = countdownQuick ? 1.6 : 3.6;
+  setCountdownText(countdownQuick ? "PRÊT" : "3");
   $("banner-school").className = "";
   $("dmgborder").className = "";
   $("speedlines").className = "";
@@ -126,7 +130,7 @@ function beginJourney() {
   audio.init(); audio.resume(); audio.uiBig();
   setApp(APP.MENU);
 }
-function replay() { audio.uiBig(); startRace(); }
+function replay() { audio.uiBig(); startRace(true); }
 function goToMenu() {
   audio.ui();
   audio.setSiren(0, 0.05);
@@ -255,7 +259,7 @@ function recycleChunks(focusZ, demo) {
 }
 
 /* --------------------------------- COURSE ---------------------------------- */
-let countdownT = 0;
+let countdownT = 0, countdownQuick = false;
 function setCountdownText(t) {
   const cd = $("countdown");
   cd.classList.remove("hidden");
@@ -265,7 +269,7 @@ function updateCountdown(dt) {
   countdownT -= dt;
   const prev = Math.ceil(countdownT + 0.0);
   if (countdownT <= 0.6) setCountdownText("GO !");
-  else setCountdownText(String(Math.min(3, Math.ceil(countdownT - 0.6))));
+  else setCountdownText(countdownQuick ? "PRÊT" : String(Math.min(3, Math.ceil(countdownT - 0.6))));
   if (countdownT <= 0.6 && hudCache["cdgo"] !== 1) { hudCache["cdgo"] = 1; audio.beep(880, 0.3, "square", 0.2, 1400); flash("good", 220); }
   if (countdownT <= 0) {
     $("countdown").classList.add("hidden");
@@ -842,7 +846,7 @@ function updateEndSeq(dt) {
   if (sq.reason === "moto") audio.engineOff();
   else { audio.setNitro(false); audio.setEngine(player.speed / topSpeed(), 0, dt); }
   updateDadEntity(dt * slow, st);
-  if (sq.t > (sq.win ? 2.3 : 1.6)) {
+  if (sq.t > (sq.win ? 2.3 : 1.0)) {
     sq.shown = true;
     showEndScreen(sq.win, sq.reason);
   }
@@ -878,9 +882,11 @@ function updateCamera(dt) {
   camera.lookAt(player.x * 0.72, 1.3 + (player.worldY || 0) * 0.5, player.z - 8.5 - spd * 2);
   camera.rotation.z = -(player.vxDir || 0) * 0.012 * spd + feel.shakeRoll * 0.03;
   if (shake.amp > 0.002) {
-    camera.position.x += rnd(-1, 1) * shake.amp * 0.55;
-    camera.position.y += rnd(-1, 1) * shake.amp * 0.4;
-    camera.rotation.z += rnd(-1, 1) * shake.amp * 0.03;
+    // bruit lisse (sinus superposes, ~12-30 Hz) plutot qu'un tirage par image : secousse franche, sans gresillement
+    const st = shake.t = (shake.t || 0) + dt;
+    camera.position.x += (Math.sin(st * 103) * 0.55 + Math.sin(st * 167 + 1.3) * 0.45) * shake.amp * 0.55;
+    camera.position.y += (Math.sin(st * 89 + 2.1) * 0.55 + Math.sin(st * 151 + 4.4) * 0.45) * shake.amp * 0.4;
+    camera.rotation.z += (Math.sin(st * 71 + 4.2) * 0.55 + Math.sin(st * 131 + 0.7) * 0.45) * shake.amp * 0.03;
     shake.amp *= Math.exp(-5.2 * dt);
   } else { shake.amp = 0; }
   const targetFov = 38 + spd * 5 + feel.nitroK * 6 - feel.punch * 3.2;
@@ -892,9 +898,7 @@ function updateCamera(dt) {
 }
 
 /* -------------------------------- BOUCLE ------------------------------------ */
-function updateParticles(dt) {
-  fxSmoke.update(dt); fxSpark.update(dt); fxDebris.update(dt);
-}
+// updateParticles est dans 32-fx.js (toutes les familles de particules)
 /* Simulation pure (sans rendu) : permet les tests deterministes via MF.debug.advance() */
 function simStep(rawDt) {
   if (app !== APP.PAUSE) animClock += rawDt;

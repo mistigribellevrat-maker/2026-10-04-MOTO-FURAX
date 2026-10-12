@@ -117,7 +117,7 @@ window.addEventListener("keydown", (e) => {
     else if (modal) closeModal();
   }
   if (e.code === "KeyM") { audio.setMuted(!save.muted); refreshMuteBtn(); }
-  if (e.code === "KeyR" && (app === APP.RACE || app === APP.PAUSE)) { replay(); }
+  if (e.code === "KeyR" && (app === APP.RACE || app === APP.PAUSE || app === APP.WIN || app === APP.LOSE)) { replay(); }
 });
 window.addEventListener("keyup", (e) => {
   const k = KEYMAP[e.code];
@@ -125,6 +125,8 @@ window.addEventListener("keyup", (e) => {
   if (e.code === "Space") input.jumpHeld = false;
 });
 window.addEventListener("blur", () => { input.up = input.down = input.left = input.right = input.nitro = false; });
+// onglet masque en pleine course : la boucle s'arrete mais pas le son ; on met en pause (sirene et moteur coupes)
+document.addEventListener("visibilitychange", () => { if (document.hidden && app === APP.RACE) pauseRace(); });
 // premiere interaction : les navigateurs autorisent enfin la musique (accueil)
 ["pointerdown", "keydown", "touchstart"].forEach((ev) => window.addEventListener(ev, () => music.unlock(), { passive: true }));
 
