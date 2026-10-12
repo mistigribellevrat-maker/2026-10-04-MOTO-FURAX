@@ -37,8 +37,41 @@ const ARM_POSES = {
   hold:  { u: [0.7, 0.2], f: [1.45, -0.1] }
 };
 
-// Cree un humain ; renvoie { root, hips, head, armL, armR, legL, legR, set(pose)... }
-function buildHuman(spec) {
+/* Humains en cache : construire un humain (boites arrondies + fusions) coute 10 a 15 ms ; une manif
+   de 5 en pleine course figeait l'image suivante (mesure : 30 a 63 ms par troncon). On construit donc
+   chaque silhouette une fois (geometries partagees), puis on la clone : quasi gratuit.
+   - sans pool : cache exact (memes parametres -> meme silhouette), ex. la copine, le principal ;
+   - avec pool { role, n, by } : jusqu'a n variantes par role (+ champs "by" qui changent la forme,
+     ex. bras qui tiennent la pancarte) ; au-dela, on reprend une variante existante au hasard.
+     Les pools sont remplis au chargement (38-warmup.js). */
+const HUMAN_CACHE = {};
+function buildHuman(spec, pool) {
+  spec = spec || {};
+  const S = spec.h || 1;
+  let key;
+  if (pool) key = "P:" + pool.role + "|" + (pool.by || []).map((k) => spec[k]).join(",");
+  else { const s = Object.assign({}, spec); delete s.h; key = "F:" + JSON.stringify(s); }
+  const list = HUMAN_CACHE[key] || (HUMAN_CACHE[key] = []);
+  // toujours exactement un tirage, construit ou non : la graine du parcours (defi du jour) reste stable
+  const r = Math.random();
+  let proto;
+  if (list.length < (pool ? pool.n : 1)) {
+    proto = buildHumanRig(Object.assign({}, spec, { h: 1 }));
+    markShared(proto.root);
+    proto.nodes = []; proto.root.traverse((o) => proto.nodes.push(o));
+    list.push(proto);
+  } else proto = list[Math.floor(r * list.length)];
+  const root = proto.root.clone(true);
+  const nodes = []; root.traverse((o) => nodes.push(o));
+  const map = (o) => (o ? nodes[proto.nodes.indexOf(o)] : null);
+  const h = { root: root, hips: map(proto.hips), head: map(proto.head), armL: map(proto.armL), armR: map(proto.armR), legL: map(proto.legL), legR: map(proto.legR), tail: map(proto.tail), S: S };
+  h.hips.position.y = 0.9 * S;
+  root.scale.setScalar(S);
+  return h;
+}
+
+// Construit un humain neuf ; renvoie { root, hips, head, armL, armR, legL, legR, tail, S }
+function buildHumanRig(spec) {
   spec = Object.assign({
     h: 1, skin: 0xe8b48a, hair: 0x3a2a1c, hairStyle: "short", shirt: 0x2f6fcf, pants: 0x2b3038, shoe: 0xf0f0f0,
     armL: "down", armR: "down", legs: "swing", head: 1.22, backpack: 0, hood: 0, mouth: 0, brow: 0, build: 1
@@ -224,7 +257,7 @@ function makeProtest() {
     const h = buildHuman({
       h: rnd(0.95, 1.06), skin: pick(SKINS), hair: pick(HAIRS), hairStyle: style, shirt: pick(TOPS), pants: pick(BOTTOMS),
       armL: i % 2 ? "sign" : "fist", armR: i % 2 ? "fist" : "sign", mouth: 1, brow: 1, hood: i % 3 === 0 ? 1 : 0, capColor: pick(TOPS)
-    });
+    }, { role: "protest", by: ["armL", "armR"], n: 8 });
     h.root.position.set(sx, 0, rnd(-0.25, 0.25));
     sx += 1.05;
     h.root.rotation.y = Math.PI + rnd(-0.2, 0.2);
@@ -263,11 +296,21 @@ function makeProtest() {
   return e;
 }
 
+// chat : un prototype (geometries partagees) puis des clones, comme les humains (cf. buildHuman)
+function buildCatShared() {
+  const P = buildCatShared.proto || (buildCatShared.proto = (() => { const c = buildCat(); markShared(c.root); c.nodes = []; c.root.traverse((o) => c.nodes.push(o)); return c; })());
+  const root = P.root.clone(true);
+  const nodes = []; root.traverse((o) => nodes.push(o));
+  const m = (o) => nodes[P.nodes.indexOf(o)];
+  return { root: root, body: m(P.body), head: m(P.head), tail: m(P.tail), legs: P.legs.map(m) };
+}
 function makeCat() {
-  const c = buildCat();
+  const c = buildCatShared();
   const g = c.root;
   // point d'exclamation de surprise
-  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: textSprite("!", { w: 128, h: 128, fg: "#ffe34d", font: "900 120px 'Arial Black', sans-serif" }), transparent: true, depthTest: false, fog: false }));
+  // texture « ! » dessinee une seule fois (un canvas par chat coutait ~2 ms et n'etait jamais libere)
+  if (!makeCat.bang) makeCat.bang = textSprite("!", { w: 128, h: 128, fg: "#ffe34d", font: "900 120px 'Arial Black', sans-serif" });
+  const ex = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeCat.bang, transparent: true, depthTest: false, fog: false }));
   ex.scale.set(0.42, 0.42, 1); ex.position.set(0, 0.95, 0); ex.visible = false; ex.renderOrder = 20;
   g.add(ex);
   const e = regEnt(g, { type: "cat", level: "LOW", hw: 0.4, hl: 0.55, hh: 0.72, damage: 6, dyn: true });
@@ -371,7 +414,7 @@ function makeScooterKid() {
   const k = buildHuman({
     h: 0.78, skin: pick(SKINS), hair: pick(HAIRS), hairStyle: "cap", capColor: 0xe8453c, shirt: 0x3d8256, pants: 0x2b3038, shoe: 0xe8453c,
     armL: "bars", armR: "bars", mouth: 1, backpack: 0xf2b630, head: 1.3
-  });
+  }, { role: "scooter", n: 6 });
   k.root.position.set(0, 0.16, 0.12);
   k.legL.rotation.x = 0.3; k.legR.rotation.x = -0.9;
   k.hips.rotation.x = 0.12;
@@ -404,7 +447,7 @@ function makeBallKid() {
   const k = buildHuman({
     h: 0.82, skin: pick(SKINS), hair: pick(HAIRS), hairStyle: "curly", shirt: 0xe0a020, pants: 0x2a3a60, shoe: 0xe8453c,
     armL: "fist", armR: "down", mouth: 1, head: 1.3
-  });
+  }, { role: "ballkid", n: 6 });
   g.add(k.root);
   const e = regEnt(g, { type: "ballkid", level: "LOW", hw: 0.75, hl: 0.75, hh: 1.6, damage: 3, dyn: true });
   e.dir = Math.random() < 0.5 ? 1 : -1; e.t = 0;
@@ -430,7 +473,7 @@ function makeSchoolKids(n) {
       h: rnd(0.78, 0.95), skin: pick(SKINS), hair: pick(HAIRS), hairStyle: girl ? pick(["long", "bun", "short"]) : pick(["short", "curly", "cap"]),
       shirt: pick(TOPS), pants: pick(BOTTOMS), shoe: pick([0xffffff, 0x222222, 0xe8453c]), backpack: pick(TOPS),
       armL: pick(["down", "wave", "hips"]), armR: pick(["down", "hips", "fist"]), mouth: Math.random() < 0.4 ? 1 : 0, head: 1.3, capColor: pick(TOPS)
-    });
+    }, { role: "school", n: 10 });
     arr.push(h);
   }
   return arr;

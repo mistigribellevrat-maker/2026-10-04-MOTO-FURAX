@@ -426,20 +426,20 @@ function buildTruckProto() {
     g.add(w); wheels.push(w);
   });
   g.traverse((o) => { if (o.isMesh) o.castShadow = o.castShadow !== false; });
-  g.userData.wheels = wheels;
   // clignotants (hazard)
   const hz = new THREE.Group();
   const hzM = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2.2, 0.2), toneMapped: false, fog: true });
   [[-1.5, 1.05, 4.9], [1.5, 1.05, 4.9], [-1.62, 1.35, -3.9], [1.62, 1.35, -3.9]].forEach((p) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), hzM); m.position.set(p[0], p[1], p[2]); hz.add(m); });
   g.add(hz);
-  g.userData.hazard = hzM;
+  // hors userData : clone() recopie userData en JSON (le materiau y pesait 1,5 Mo -> 6 ms par camion)
+  PROP.truckHazard = hzM;
   return markShared(g);
 }
 
 function makeTruck() {
   if (!PROP.truck) PROP.truck = buildTruckProto();
   const g = PROP.truck.clone(true);
-  const hzM = PROP.truck.userData.hazard;
+  const hzM = PROP.truckHazard;
   const e = regEnt(g, { type: "truck", level: "FULL", hw: 1.9, hl: 4.2, hh: 4.2, damage: 34 });
   e.hornTimer = rnd(0, 2);
   e.update = (ent, dt, P, t) => {

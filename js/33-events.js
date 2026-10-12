@@ -110,13 +110,24 @@ function makeCrazyCar() {
   e.body = body; e.lamp = lamp;
   return e;
 }
+// files de la voiture folle : elle passe de l'une a l'autre au hasard, sans jamais viser la moto
+const CRAZY_LANES = [-4.5, 0, 4.5];
+function crazyNextLane(e, P) {
+  const from = e.lane;
+  e.lane = pick(CRAZY_LANES.filter((l) => Math.abs(l - from) > 0.5));
+  e.laneT = rnd(0.9, 1.6);
+  // changement de file annonce : crissement et fumee (si la moto est assez pres pour l'entendre)
+  if (P && Math.abs(e.z - P.z) < 30) { audio.screech(); smokePuff(e.x, 0.2, e.z + 1.8, { s0: 0.5, a0: 0.4, ttl: 0.7 }); }
+}
 function spawnCrazyCar(st) {
   const e = makeCrazyCar();
   const side = player.x > 0.6 ? -1 : (player.x < -0.6 ? 1 : (Math.random() < 0.5 ? -1 : 1));
   e.side = side;
-  e.x = clamp(player.x + side * 3.6, -5.6, 5.6);
+  // elle demarre dans une file voisine de la moto, 36 m derriere
+  const near = CRAZY_LANES.reduce((a, b) => Math.abs(b - player.x) < Math.abs(a - player.x) ? b : a);
+  e.lane = CRAZY_LANES.filter((l) => l !== near).reduce((a, b) => Math.abs(b - (player.x + side * 3.6)) < Math.abs(a - (player.x + side * 3.6)) ? b : a);
+  e.x = e.lane; e.laneT = rnd(1.2, 2.0); e.laneChanges = 0;
   e.z = player.z + 36;
-  e.lane = e.x;
   e.speed = Math.max(player.speed, 18) + 13;
   e.phase = "chase"; e.t = 0; e.nm = true; e.prevX = e.x;
   e.update = updateCrazyCar;
@@ -132,19 +143,15 @@ function updateCrazyCar(e, dt, P) {
   const roadX = CFG.ROAD_W / 2 - 1.0;
   let target = e.x, vmax = 4;
   if (e.phase === "chase") {
-    e.speed = damp(e.speed, Math.max(P.speed, 18) + 12, 2, dt);
-    target = e.lane + Math.sin(e.t * 2.6) * 1.3;
+    // elle roule pour elle-meme : zigzags et changements de file au hasard, jamais vers la moto.
+    // Vitesse laterale (5 m/s) bien inferieure a celle de la moto (13,5 m/s) : on peut toujours l'esquiver.
+    e.speed = damp(e.speed, Math.max(P.speed, 18) + (rel > 10 ? 12 : 8), 2, dt);
+    e.laneT -= dt;
+    if (e.laneT <= 0) { crazyNextLane(e, P); e.laneChanges++; }
+    target = e.lane + Math.sin(e.t * 2.6) * 0.6; vmax = 5;
     if (Math.random() < dt * 0.8) audio.horn();
-    if (rel < 10) { e.phase = "swerve"; e.swT = 0; audio.screech(); }
-  } else if (e.phase === "swerve") {
-    // queue de poisson : elle se rabat sur la trajectoire de la moto
-    e.swT += dt;
-    e.speed = Math.max(P.speed, 18) + 6.5;
-    // elle vise la moto tant qu'elle est a sa hauteur ; une fois devant, elle garde sa ligne
-    target = rel > -2.5 ? P.x : e.x; vmax = 6.8;
-    if (e.hitPlayer) e.swT = 99;
-    if (Math.random() < dt * 12) smokePuff(e.x + rnd(-0.8, 0.8), 0.2, e.z + 1.8, { s0: 0.4, a0: 0.35, ttl: 0.6 });
-    if (rel < -9 || e.swT > 2.6) {
+    if (Math.abs(e.x - e.lane) > 0.6 && Math.random() < dt * 10) smokePuff(e.x + rnd(-0.8, 0.8), 0.2, e.z + 1.8, { s0: 0.4, a0: 0.35, ttl: 0.6 });
+    if (rel < -9) {
       e.phase = "flee";
       if (!e.hitPlayer && gameState && !gameState.endSeq) {
         addScore(gameState, 150, "VOITURE FOLLE ÉVITÉE !", true);

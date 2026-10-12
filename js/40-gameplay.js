@@ -1062,7 +1062,7 @@ function init() {
     .concat(cityTextureSteps())
     .concat([
       ["Bâtiments", buildBuildingPrefabs], ["Mobilier urbain", buildProps], ["Textures", buildSignTextures],
-      ["Ciel et lumière", buildSky], ["Effets", buildParticles], ["Ville", buildWorld], ["Poursuivant", buildDad],
+      ["Ciel et lumière", buildSky], ["Effets", buildParticles], ["Ville", buildWorld], ["Poursuivant", buildDad], ["Préparation des effets", warmupShaders],
       ["Interface", () => { setupUI(); onResize(); onlineStart(); }]
     ]);
   const ldFill = $("ld-fill"), ldText = $("ld-text"), ld = $("loading");

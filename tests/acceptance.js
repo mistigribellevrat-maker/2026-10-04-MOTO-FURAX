@@ -468,16 +468,34 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     ok(await ev(() => MF.dad.speed < 8), "Clothilde : BROUILLAGE RADIO (la voiture de police s'arrete)", await ev(() => MF.dad.speed));
     await ev(() => MF.debug.key("up", false));
   });
-  await test("Voiture folle : arrive par derriere, se rabat, renverse", async () => {
+  await test("Voiture folle : arrive par derriere, roule pour elle-meme (jamais vers la moto), renverse si on la coupe", async () => {
     await fresh(true, 0);
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(4); MF.debug.noEvents(); MF.debug.god(false); MF.debug.crazyCar(); });
     ok(await ev(() => document.getElementById("hud-threat").classList.contains("on") || (MF.debug.advance(0.05), document.getElementById("hud-threat").classList.contains("on"))), "alerte affichee pendant qu'elle arrive");
     const c0 = await ev(() => MF.debug.crazy());
     ok(c0 && c0.z > (await ev(() => MF.player.z)), "elle apparait derriere la moto", c0);
-    const hp0 = await ev(() => MF.game.integrity);
+    ok(await ev(() => !/P\.x/.test(updateCrazyCar.toString())), "sa trajectoire ne lit jamais la position de la moto (pas de tete chercheuse)");
+    // 8 passages, moto au milieu sans toucher au guidon : une tete chercheuse les gagnerait tous
+    const runs = await ev(() => {
+      const out = [];
+      for (let k = 0; k < 8; k++) {
+        // course maintenue en vie : police au loin, chrono plein (sinon la partie se termine et la voiture se fige)
+        MF.debug.setPlayer({ x: 0, vx: 0, stun: 0, slip: 0, z: -300 }); MF.debug.setIntegrity(100); MF.debug.setDad(60); MF.debug.setTimeLeft(60);
+        if (crazyRef) { crazyRef.dead = true; MF.debug.advance(0.02); }
+        spawnCrazyCar(MF.game);
+        const c = crazyRef; let n = 0;
+        while (c.phase === "chase" && !c.dead && n++ < 400) MF.debug.advance(0.025);
+        out.push({ hit: !!c.hitPlayer, lanes: c.laneChanges, etat: MF.state });
+      }
+      return out;
+    });
+    ok(runs.some((r) => !r.hit), "elle peut doubler sans nous toucher (trajectoire independante)", runs);
+    ok(runs.every((r) => r.lanes >= 1), "elle change de file en route (elle reste imprevisible)", runs);
+    // collision forcee : elle debouche dans notre file juste derriere nous
+    const hp0 = await ev(() => { if (crazyRef) crazyRef.dead = true; MF.debug.advance(0.02); MF.debug.setIntegrity(100); MF.debug.setDad(60); MF.debug.setTimeLeft(60); spawnCrazyCar(MF.game); const c = crazyRef; c.lane = c.x = MF.player.x; c.laneT = 99; c.z = MF.player.z + 4; return MF.game.integrity; });
     let hit = false;
-    for (let i = 0; i < 40 && !hit; i++) { await ev(() => MF.debug.advance(0.1)); const c = await ev(() => MF.debug.crazy()); hit = !!(c && c.hit); }
-    ok(hit, "si on ne fait rien, elle nous percute (queue de poisson)");
+    for (let i = 0; i < 20 && !hit; i++) { await ev(() => MF.debug.advance(0.05)); const c = await ev(() => MF.debug.crazy()); hit = !!(c && c.hit); }
+    ok(hit, "si elle deboule dans notre file, elle nous percute");
     ok(await ev(() => MF.game.integrity) < hp0, "degats subis", { avant: hp0, apres: await ev(() => MF.game.integrity) });
     await ev(() => MF.debug.key("up", false));
   });
@@ -701,6 +719,28 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     });
     ok(dup.length === 0, "aucune fonction globale definie deux fois (la seconde ecraserait la premiere)", dup);
     ok(await ev(() => /fxGlow/.test(updateParticles.toString()) && /fxWind/.test(updateParticles.toString())), "lueurs, lignes de vitesse et poussiere sont animees");
+  });
+  await test("Fluidite : rien n'est compile ni construit en pleine course (pas d'a-coups)", async () => {
+    // course complete avec obstacles et evenements, rendue tous les 20 m : aucun programme GPU nouveau
+    const r = await ev(() => {
+      MF.debug.noObstacles(false); MF.startRace(); MF.debug.advance(4.3); MF.debug.god(true);
+      const progs0 = RENDER.renderer.info.programs.length;
+      let built = 0; const orig = buildHumanRig;
+      window.buildHumanRig = function () { built++; return orig.apply(this, arguments); };
+      for (let z = -20; z > -1990; z -= 20) {
+        MF.debug.teleport(z); MF.debug.setDad(40); MF.debug.setTimeLeft(60);
+        if (z === -600) spawnCrazyCar(MF.game);
+        if (z === -900) spawnOncoming(MF.game);
+        MF.debug.advance(0.05); MF.debug.frame();
+      }
+      window.buildHumanRig = orig;
+      return { nouveaux: RENDER.renderer.info.programs.length - progs0, humainsConstruits: built, boss: !!boss };
+    });
+    ok(r.nouveaux === 0, "aucun shader compile en course (tout est prechauffe au chargement)", r);
+    ok(r.humainsConstruits === 0, "aucun personnage construit en course (clones de la reserve)", r);
+    ok(r.boss, "le parcours a bien ete parcouru jusqu'au principal", r);
+    ok(await ev(() => JSON.stringify(PROP.truck.userData).length < 2000), "prototype du camion : userData leger (clone() le recopie en JSON)");
+    await ev(() => { MF.debug.noObstacles(true); MF.debug.god(false); });
   });
   await test("Performance (indicative) : appels de rendu et triangles", async () => {
     await fresh(true);

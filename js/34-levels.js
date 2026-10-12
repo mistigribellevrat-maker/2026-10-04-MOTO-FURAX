@@ -106,17 +106,20 @@ function bossBanner(w) {
   m.position.y = 1.35;
   return m;
 }
+// le principal (silhouette unique) ou un surveillant en gilet jaune (pool de variantes, rempli au chargement)
+function makeBossHuman(principal) {
+  const h = buildHuman(principal
+    ? { h: 1.08, skin: 0xe8b48a, hair: 0x8a8a90, hairStyle: "balding", shirt: 0x2b3448, pants: 0x2b3448, shoe: 0x1a1a1a, armL: "hips", armR: "wave", mouth: 1, brow: 1, head: 1.3, build: 1.1 }
+    : { h: rnd(0.98, 1.04), skin: pick(SKINS), hair: pick(HAIRS), hairStyle: pick(["short", "cap", "long"]), shirt: 0xf2d21b, pants: 0x2b3038, armL: "hold", armR: "hold", mouth: 1, head: 1.25 },
+    principal ? null : { role: "crew", n: 6 });
+  h.root.rotation.y = Math.PI;
+  h.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return h;
+}
 function spawnBoss(st) {
   const z = -BOSS_DIST;
   const people = [];
-  const mk = (principal) => {
-    const h = buildHuman(principal
-      ? { h: 1.08, skin: 0xe8b48a, hair: 0x8a8a90, hairStyle: "balding", shirt: 0x2b3448, pants: 0x2b3448, shoe: 0x1a1a1a, armL: "hips", armR: "wave", mouth: 1, brow: 1, head: 1.3, build: 1.1 }
-      : { h: rnd(0.98, 1.04), skin: pick(SKINS), hair: pick(HAIRS), hairStyle: pick(["short", "cap", "long"]), shirt: 0xf2d21b, pants: 0x2b3038, armL: "hold", armR: "hold", mouth: 1, head: 1.25 });
-    h.root.rotation.y = Math.PI;
-    h.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-    return h;
-  };
+  const mk = makeBossHuman;
   // deux murs (gauche / droite de la breche), chacun = une entite basse dont la largeur suit la breche
   const walls = [-1, 1].map((side) => {
     const g = new THREE.Group();
