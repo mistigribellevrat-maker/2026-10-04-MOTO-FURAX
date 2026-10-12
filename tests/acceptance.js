@@ -742,6 +742,98 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     ok(await ev(() => JSON.stringify(PROP.truck.userData).length < 2000), "prototype du camion : userData leger (clone() le recopie en JSON)");
     await ev(() => { MF.debug.noObstacles(true); MF.debug.god(false); });
   });
+  await test("Fluidite mobile (lot 2) : ombres, troncons etales, brouillard, entites lointaines, HUD", async () => {
+    // facades, devantures, toits : hors de la passe d'ombres (le corps du batiment projette deja l'ombre)
+    const sh = await ev(() => {
+      const r = { off: 0, on: 0, bad: [] };
+      Object.values(BUILD.protos).forEach((list) => list.forEach((p) => p.traverse((o) => {
+        if (!o.isMesh) return;
+        if (/^(f\d|shop|roof|billboard)$/.test(o.name)) { if (o.castShadow) r.bad.push(o.name); else r.off++; }
+        else if (o.name === "uni" && o.castShadow) r.on++;
+      })));
+      return r;
+    });
+    ok(sh.off > 0 && sh.bad.length === 0 && sh.on > 0, "facades / devantures / toits sans ombre portee, corps du batiment avec", sh);
+    // fusion rapide des accessoires = meme resultat que l'ancienne methode
+    const mg = await ev(() => {
+      const g1 = new THREE.BoxGeometry(1, 2, 3).toNonIndexed(), g2 = new THREE.CylinderGeometry(0.5, 0.7, 2, 9).toNonIndexed();
+      const m1 = new THREE.Matrix4().compose(new THREE.Vector3(3, 1, -2), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.3, 1.2, -0.4)), new THREE.Vector3(1.5, 0.8, 2));
+      const m2 = new THREE.Matrix4().makeTranslation(-4, 0, 7);
+      const a = mergeTransformed([{ g: g1, m: m1 }, { g: g2, m: m2 }]);
+      const b = THREE.BufferGeometryUtils.mergeBufferGeometries([g1.clone().applyMatrix4(m1), g2.clone().applyMatrix4(m2)], false);
+      let d = 0; Object.keys(b.attributes).forEach((k) => { const x = a.attributes[k].array, y = b.attributes[k].array; for (let i = 0; i < y.length; i++) d = Math.max(d, Math.abs(x[i] - y[i])); });
+      return d;
+    });
+    ok(mg < 1e-5, "fusion rapide des accessoires identique a l'ancienne", mg);
+    // un troncon recycle en course est construit en plusieurs images, cache tant qu'il n'est pas fini
+    await fresh(true);
+    const lay = await ev(() => {
+      const ch = chunks.reduce((a, c) => (c.position.z > a.position.z ? c : a));   // le troncon le plus en arriere
+      MF.debug.teleport(ch.position.z - CFG.CHUNK_LEN);
+      recycleChunks(MF.player.z, false);
+      const r = { jobs: LAYOUT.jobs.length, hidden: !ch.userData.content.visible && ch.userData.building };
+      let frames = 0;
+      while (LAYOUT.jobs.length && frames < 300) { pumpLayout(0); frames++; }
+      r.frames = frames; r.done = !ch.userData.building && LAYOUT.jobs.length === 0;
+      return r;
+    });
+    ok(lay.jobs > 0 && lay.hidden, "troncon recycle : mis en file et cache pendant sa construction", lay);
+    ok(lay.done && lay.frames >= 5, "construction etalee sur plusieurs images (une etape par image au minimum)", lay);
+    // troncons noyes dans le brouillard : ni dessines ni envoyes au GPU
+    const fog = await ev(() => {
+      MF.debug.frame();
+      const vis = 1.8 / scene.fog.density, H = CFG.CHUNK_LEN / 2;
+      return chunks.map((c) => ({ d: Math.round(Math.max(0, Math.abs(camera.position.z - c.position.z) - H)), v: c.userData.content.visible })).filter((c) => c.d >= vis || c.d < 150).map((c) => (c.d >= vis) !== c.v);
+    });
+    ok(fog.length > 0 && fog.every(Boolean), "troncons au-dela du brouillard caches, troncons proches affiches", fog);
+    // entites posees loin devant : pas animees ; de pres : animees
+    const far = await ev(() => {
+      const ch = chunks.reduce((a, c) => (c.position.z < a.position.z ? c : a));   // le plus en avant
+      let n = 0;
+      const e = { type: "test", chunk: ch, obj: new THREE.Object3D(), dead: false, update: () => { n++; } };
+      e.obj.position.z = 0;
+      ents.push(e);
+      const ahead = MF.player.z - ch.position.z;
+      MF.debug.advance(0.2);
+      const loin = n;
+      e.obj.position.z = (MF.player.z - 20) - ch.position.z;                       // 20 m devant la moto
+      MF.debug.advance(0.2);
+      ents.splice(ents.indexOf(e), 1);
+      return { ahead: Math.round(ahead), loin, pres: n - loin };
+    });
+    ok(far.ahead > 110 && far.loin === 0 && far.pres > 5, "entite a plus de 110 m : pas animee ; a 20 m : animee", far);
+    // HUD reecrit a ~20 Hz (et non 60)
+    const hud = await ev(() => {
+      const el = document.getElementById("hud-clock"); let w = 0;
+      const mo = new MutationObserver((l) => { w += l.length; }); mo.observe(el, { childList: true, characterData: true, subtree: true });
+      MF.debug.advance(1);
+      return new Promise((r) => setTimeout(() => { mo.disconnect(); r(w); }, 0));
+    });
+    ok(hud > 0 && hud <= 22, "chrono du HUD reecrit au plus ~20 fois par seconde", hud);
+    // HUD de course sans flou d'arriere-plan (couteux sur telephone)
+    ok(await ev(() => [".hud-clockbox", ".vital", ".hud-score", ".hud-round", ".mc-btn"].every((s) => { const f = getComputedStyle(document.querySelector(s)).backdropFilter; return !f || f === "none"; })), "HUD de course sans backdrop-filter");
+  });
+  await test("Qualite automatique : descend quand ca rame, remonte quand c'est fluide", async () => {
+    const q = await ev(() => {
+      const R = RENDER, saved = { auto: R.auto, user: R.userLevel };
+      R.setUserLevel("auto");
+      const feed = (ms, sec) => { for (let t = 0; t < sec; t += ms / 1000) { R.time += ms / 1000; R.frames++; R.tick(ms); } };
+      const log = [];
+      R.setStep(5); R.ema = 16.7; R.best = 0; R.frames = 200; R.lastAdjust = R.time - 10;
+      feed(16.7, 8); log.push(R.step);                    // 60 images/s stables : on remonte
+      feed(16.7, 8); log.push(R.step);
+      feed(32, 4); log.push(R.step);                      // juste apres la montee, ca rame : on redescend
+      const ceil = R.ceil ? R.ceil.step : -1;
+      feed(16.7, 20); log.push(R.step);                   // le cran qui ramait n'est pas retente tout de suite
+      feed(16.7, 120); log.push(R.step);                  // ... mais il l'est plus tard
+      const lv = R.level;
+      R.auto = saved.auto; R.setUserLevel(saved.user);
+      return { log, ceil, lv };
+    });
+    ok(q.log[0] === 6 && q.log[1] === 7, "ecran 60 Hz fluide : la qualite remonte d'un cran toutes les ~6 s", q);
+    ok(q.log[2] < 7 && q.ceil === 7, "un cran qui rame juste apres la montee redescend et devient plafond", q);
+    ok(q.log[3] === 6 && q.log[4] === 7, "plafond retente apres un delai (pas de va-et-vient)", q);
+  });
   await test("Performance (indicative) : appels de rendu et triangles", async () => {
     await fresh(true);
     await ev(() => { MF.debug.key("up", true); MF.debug.advance(4); MF.debug.frame(); });
@@ -812,6 +904,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
     await p3.setViewportSize({ width: 340, height: 750 }); await p3.waitForTimeout(400);
     ok(await e3(() => getComputedStyle(document.getElementById("rotate")).display) !== "none", "a la verticale : ecran « Tourne ton telephone »");
     ok(await e3(() => MF.state) === "PAUSE", "a la verticale : la course se met en pause");
+    ok(await e3(() => AUTO_LADDER[autoStartStep()][0]) === "medium", "telephone : qualite automatique de depart « moyenne »");
     ok(errs.length === 0, "aucune erreur", errs);
     await ctx.close();
   });

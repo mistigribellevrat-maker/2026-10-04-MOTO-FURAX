@@ -1,6 +1,6 @@
 # MOTO FURAX — reste à faire (état au 2026-10-12)
 
-Branche de travail : `claude/inspiring-brown-y5nlty`. Recette : **217/217** (`cd tests && node acceptance.js`).
+Branche de travail : `claude/inspiring-brown-y5nlty`. Recette : **229/229** (`cd tests && node acceptance.js`).
 
 ## Fait
 - Lot 1 (effets, dangers annoncés, relance rapide), voiture folle esquivable, fluidité PC (préchauffage
@@ -22,15 +22,30 @@ Branche de travail : `claude/inspiring-brown-y5nlty`. Recette : **217/217** (`cd
   - Test « Mobile : téléphone à l'horizontale (iPhone 750×340) et à la verticale » ajouté.
   - Outil : `tests/screens.js` (captures de 10 écrans × 5 tailles + détection des débordements, dans `tests/captures/`).
 
+- **Fluidité mobile (lot 2)**, mesurée avec `tests/perf.js` (téléphone 740×360, CPU ×4, qualité moyenne,
+  900 images de vraie course ; seul le travail du processeur est mesuré, le dessin GPU est neutralisé) :
+  temps moyen par image **22,3 → 14,8 ms** (−34 %), images > 16,7 ms 658 → 261, > 33 ms 72 → 8,
+  pire image ~250 → ~55 ms, appels de dessin 582 → 497.
+  - Tronçons : fusion des accessoires réécrite (`mergeTransformed`, 3× plus rapide, résultat identique) ;
+    construction étalée sur plusieurs images (`layoutChunkSteps` + file `LAYOUT`, ~3 ms par image), tronçon
+    caché tant qu'il n'est pas fini ; `rebuildAllChunks` ne construit plus chaque tronçon deux fois.
+  - Tronçons noyés dans le brouillard (> 96 %) ni dessinés ni envoyés au GPU (`cullChunks`).
+  - Façades, devantures, toits et panneaux hors de la passe d'ombres (~45 % de ses appels en moins).
+  - Entités posées à plus de 110 m devant / 40 m derrière non animées (les entités libres le restent).
+  - HUD (DOM) réécrit à ~20 Hz ; plus de `backdrop-filter` dans le HUD de course, ni sur tactile dans les menus.
+  - Textures du décor envoyées au GPU au chargement (`uploadSceneTextures`) : plus d'à-coup à la 1re image.
+  - Qualité automatique en échelle (`AUTO_LADDER`) : départ « moyenne » sur téléphone, « élevée » sur PC ;
+    remonte quand c'est fluide (y compris sur écran 60 Hz, ce qui n'arrivait jamais), cran qui rame = plafond
+    retenté plus tard.
+  - Tests ajoutés : « Fluidité mobile (lot 2) » et « Qualité automatique ».
+
 ## Reste à faire, par priorité
 1. **Vérifier sur de vrais téléphones** (iPhone Safari avec et sans barre, Android Chrome en plein écran) :
    encoche réelle, verrouillage du paysage, confort des boutons tactiles. Retoucher si besoin.
-2. **Fluidité mobile (lot 2 restant)** : à CPU ×4, ~30 FPS en charge de fond (rendu 500-700 draw calls).
-   - Retirer `backdrop-filter` du HUD de course (css ~l.168-415).
-   - `castShadow=false` sur façades/devantures/toits/pancartes (`22-buildings.js` BB.finish).
-   - Ne pas animer les entités lointaines (`updateEnts`).
-   - Qualité de départ selon l'appareil (tactile → medium) ; adaptatif qui remonte (`10-render.js:359-381`).
-   - HUD DOM à ~20 Hz, allocations par image (`entWorld`), à-coup unique au lancement (~116 ms, upload GPU).
+2. **Fluidité (reste, optionnel)** : vérifier en vrai sur téléphone (le GPU n'est pas mesurable ici).
+   Pistes si besoin : passe principale ~230 appels (4 meshes par bâtiment : fusionner façade/devanture/toit
+   via un atlas), envoi de la géométrie des 6 tronçons au départ (pendant le compte à rebours), allocations
+   internes de three.js (~260 Ko/image, surtout des copies de matrices).
 3. **Rejouabilité (lot 3)** : écarts intermédiaires vs fantôme, médailles bronze/argent/or, saut plat qui ne
    rapporte plus (seuil 0,9 s en l'air), « dernière chance » face à la police, écran de défaite motivant.
 4. **Équilibrage des pilotes (lot 4, décision de l'utilisateur requise)** : Clothilde trop forte (recharge nitro ×2,7,

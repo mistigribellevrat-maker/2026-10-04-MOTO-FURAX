@@ -81,12 +81,7 @@ function resetPlayer() {
   player.shadow.position.set(0, 0.015, 0);
 }
 function rebuildAllChunks(demo) {
-  for (let i = 0; i < chunks.length; i++) {
-    const ch = chunks[i];
-    ch.visible = true;
-    const idx = ch.userData.index;
-    layoutChunk(ch, idx <= MAX_CHUNK_INDEX ? idx : i, demo);
-  }
+  cancelLayout();
   // reparti proprement de 0
   chunks.forEach((ch, i) => {
     ch.visible = true;
@@ -252,8 +247,8 @@ function recycleChunks(focusZ, demo) {
     if (ch.position.z > focusZ + CFG.CHUNK_LEN * 0.85) {
       let idx = ch.userData.index + CFG.ACTIVE_CHUNKS;
       if (demo) idx = idx % Math.max(1, MAX_CHUNK_INDEX + 1);
-      if (!demo && idx > MAX_CHUNK_INDEX + 2) { ch.visible = false; continue; }
-      layoutChunk(ch, idx, demo);
+      if (!demo && idx > MAX_CHUNK_INDEX + 2) { cancelLayout(ch); ch.visible = false; continue; }
+      queueLayout(ch, idx, demo);
     }
   }
 }
@@ -484,9 +479,11 @@ function updateDadEntity(dt, st) {
   dad.root.rotation.y = damp(dad.root.rotation.y, (player.x - dad.x) * -0.06, 4, dt);
   dad.root.rotation.z = Math.sin(clockT * 9) * 0.02 * clamp(1 - dad.dist / 20, 0, 1);
   fatherHot = dad.dist < 22;
-  setStyle($("hud-dad"), "width", ((1 - clamp(dad.dist / 50, 0, 1)) * 100) + "%");
-  setText($("hud-dad-num"), dad.dist < 50 ? Math.round(dad.dist) + " m" : "LOIN");
-  $("hud-dad-bar").classList.toggle("hot", fatherHot);
+  if (hudTick) {
+    setStyle($("hud-dad"), "width", ((1 - clamp(dad.dist / 50, 0, 1)) * 100) + "%");
+    setText($("hud-dad-num"), dad.dist < 50 ? Math.round(dad.dist) + " m" : "LOIN");
+    $("hud-dad-bar").classList.toggle("hot", fatherHot);
+  }
   audio.setSiren(clamp(1 - (dad.dist - 3) / 36, 0, 1) * 0.85, dt);
   if (dad.dist <= 2.4 && !st.endSeq && !DBG.god) {
     endRace(false, "dad");
@@ -494,11 +491,19 @@ function updateDadEntity(dt, st) {
 }
 
 /* --------------------------------- ENTITES ---------------------------------- */
+const ENT_ANIM_AHEAD = 110, ENT_ANIM_BEHIND = 40;
 function updateEnts(dt, st) {
   for (let i = ents.length - 1; i >= 0; i--) {
     const e = ents[i];
     if (e.type === "phone") { updatePhone(e, dt, st); if (e.dead) { scene.remove(e.obj); ents.splice(i, 1); } continue; }
     if (e.dead) continue;
+    // entites posees sur un troncon, loin devant (> 110 m) ou derriere (> 40 m) : pas animees.
+    // Leurs declencheurs (chat, copine, klaxon...) agissent tous a moins de 80 m. Les entites libres
+    // (voiture folle, contresens, telephones) sont toujours mises a jour.
+    if (e.chunk) {
+      const ahead = player.z - (e.chunk.position.z + e.obj.position.z);
+      if (ahead > ENT_ANIM_AHEAD || ahead < -ENT_ANIM_BEHIND) continue;
+    }
     if (e.dyn && e.update) e.update(e, dt, player, clockT);
     if (e.type === "cat" && e.spawnX == null) e.spawnX = e.obj.position.x;
     if (e.update && !e.dyn) e.update(e, dt, player, clockT);
@@ -764,7 +769,24 @@ function applyDamage(dmg, st) {
 }
 
 /* ---------------------------------- HUD ------------------------------------ */
+// Le HUD (DOM) n'est reecrit qu'a ~20 Hz : sur telephone, chaque reecriture coute un recalcul de styles
+// et de mise en page. Les jauges ont une transition CSS courte : le mouvement reste fluide.
+let hudLast = -1, hudTick = true;
 function updateHUD(dt, st) {
+  hudTick = clockT - hudLast >= 0.05 || clockT < hudLast;
+  if (hudTick) { hudLast = clockT; hudDraw(st); }
+  if (st.timeLeft < 12 && Math.floor(st.timeLeft) !== st.beeped) {
+    st.beeped = Math.floor(st.timeLeft);
+    audio.tick();
+  }
+  if (!st.bannerShown && CFG.TOTAL_DIST - st.distance < 130) {
+    st.bannerShown = true;
+    const b = $("banner-school");
+    b.className = "on";
+    setTimeout(() => { b.className = ""; }, 4200);
+  }
+}
+function hudDraw(st) {
   const kmh = Math.round(player.speed * 2.62);
   setText($("hud-score"), String(st.score + Math.floor(st.distance)));
   setText($("hud-combo"), st.combo > 1 ? "COMBO x" + st.combo : "");
@@ -797,16 +819,6 @@ function updateHUD(dt, st) {
   $("hud-mode").classList.toggle("hot", fatherHot);
   const dang = (!st.endSeq && (dad.dist < 13 || hp < 0.28));
   if ($("dmgborder").className !== (dang ? "on" : "")) $("dmgborder").className = dang ? "on" : "";
-  if (crit && Math.floor(st.timeLeft) !== st.beeped) {
-    st.beeped = Math.floor(st.timeLeft);
-    audio.tick();
-  }
-  if (!st.bannerShown && CFG.TOTAL_DIST - st.distance < 130) {
-    st.bannerShown = true;
-    const b = $("banner-school");
-    b.className = "on";
-    setTimeout(() => { b.className = ""; }, 4200);
-  }
 }
 
 /* ------------------------------- SEQUENCES FIN ------------------------------ */
@@ -918,6 +930,7 @@ function simStep(rawDt) {
     for (let i = 0; i < ambient.length; i++) ambient[i](rawDt);
     weatherTick(rawDt);
     updateCamera(rawDt);
+    pumpLayout(3);                                  // troncons en construction : ~3 ms par image au plus
   } else if (PHOTO.on) updatePhotoCam();
 }
 function renderFrame(rawDt) {
@@ -926,6 +939,7 @@ function renderFrame(rawDt) {
   sunFocus.set(player.x, 0, player.z - 14);
   updateSun(sunFocus);
   if (skyMesh) { skyMesh.position.copy(camera.position); skyUniforms.uTime.value = animClock; }
+  cullChunks(camera);
   RENDER.render(scene, camera, app === APP.PAUSE ? 0 : rawDt);
   clipFrame();
   photoAfterRender();

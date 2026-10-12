@@ -767,3 +767,16 @@ body.photo-mode #hud,body.photo-mode #screen-pause{display:none!important}
 }
 /* tablette / petit PC : le bandeau du haut ne passe pas sous l'affiche */
 @media (max-width:1180px) and (min-height:521px) and (min-aspect-ratio:1/1){#screen-home .logo-kicker{letter-spacing:.2em;font-size:.6rem}}
+
+/* ============================================================================
+   v6 — fluidite mobile : HUD de course sans flou d'arriere-plan
+   Le flou (backdrop-filter) sous chaque panneau oblige le GPU a re-flouter la scene 3D a chaque image :
+   couteux sur telephone. Fonds un peu plus opaques a la place, meme lisibilite.
+   ============================================================================ */
+#hud .hud-round,#hud .hud-clockbox,#hud .vital,#hud .hud-score,#hud .mc-btn{backdrop-filter:none;-webkit-backdrop-filter:none}
+#hud .hud-clockbox{background:linear-gradient(180deg,rgba(20,11,8,.86),rgba(15,8,6,.72))}
+#hud .vital,#hud .hud-score{background:linear-gradient(180deg,rgba(20,11,8,.86),rgba(15,8,6,.72))}
+#hud .mc-btn{background:rgba(20,11,8,.7)}
+#hud .mc-btn:active{background:rgba(255,255,255,.28)}
+/* telephone / tablette : pas de flou plein ecran derriere les menus, la pause et la fin (la scene 3D bouge derriere) */
+@media (pointer:coarse){.btn,.screen.dim,.modal,#screen-menu,#modal-shop,#screen-end{backdrop-filter:none;-webkit-backdrop-filter:none}}

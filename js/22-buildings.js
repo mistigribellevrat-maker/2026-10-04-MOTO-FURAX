@@ -8,6 +8,7 @@
 const BMOD = 3.2, BGH = 4.2, BFH = 3.3;
 const BUILD = { protos: { residential: [], shops: [], downtown: [], school: [] }, billboard: null };
 
+const BB_NO_SHADOW = /^(f\d|shop|roof|billboard)$/;
 class BB {
   constructor() { this.b = {}; }
   g(k) { return this.b[k] || (this.b[k] = new GeoBuilder()); }
@@ -19,7 +20,9 @@ class BB {
       if (!geo.attributes.position || !geo.attributes.position.count) return;
       if (PBR_PRESETS[k]) { addPBR(geo, PBR_PRESETS[k]); uni.push(geo); return; }
       const mat = (k[0] === "f" && k.length === 2) ? GFX.mat.facade[+k[1]] : GFX.mat[k];
-      const m = meshOf(geo, mat, true);
+      // facades, devantures, toits et panneaux sont colles au corps du batiment, qui projette deja
+      // l'ombre : hors de la passe d'ombres (~45 % de ses appels de dessin en moins)
+      const m = meshOf(geo, mat, !BB_NO_SHADOW.test(k));
       m.name = k;
       grp.add(m);
     });

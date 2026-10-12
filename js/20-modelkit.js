@@ -76,6 +76,71 @@ class GeoBuilder {
   }
 }
 
+// Fusion rapide de geometries deplacees (accessoires d'un troncon) : les sommets transformes sont ecrits
+// directement dans les tableaux du resultat, sans clone intermediaire (3x plus rapide que
+// clone + applyMatrix4 + mergeBufferGeometries). items = [{ g: BufferGeometry, m: Matrix4 }].
+// Version en etapes : rend la main (yield) tous les ~sliceVerts sommets ; le resultat est la valeur de retour.
+// Renvoie null si les geometries ne sont pas compatibles (l'appelant garde alors l'ancienne methode).
+const _mtN = new THREE.Matrix3();
+function* mergeTransformedSteps(items, sliceVerts) {
+  if (!items.length) return null;
+  const g0 = items[0].g, names = Object.keys(g0.attributes), indexed = !!g0.index;
+  if (names.includes("tangent")) return null;
+  let nv = 0, ni = 0;
+  for (let k = 0; k < items.length; k++) {
+    const g = items[k].g;
+    if (!!g.index !== indexed || Object.keys(g.attributes).length !== names.length) return null;
+    for (const n of names) {
+      const a = g.attributes[n], a0 = g0.attributes[n];
+      if (!a || a.isInterleavedBufferAttribute || a.itemSize !== a0.itemSize || a.array.constructor !== a0.array.constructor || a.normalized !== a0.normalized) return null;
+    }
+    nv += g.attributes.position.count;
+    if (indexed) ni += g.index.count;
+  }
+  const out = new THREE.BufferGeometry(), arr = {};
+  names.forEach((n) => { const a = g0.attributes[n]; arr[n] = new a.array.constructor(nv * a.itemSize); });
+  const idx = indexed ? (nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni)) : null;
+  let vo = 0, io = 0, slice = 0;
+  for (let k = 0; k < items.length; k++) {
+    const g = items[k].g, e = items[k].m.elements, cnt = g.attributes.position.count;
+    _mtN.getNormalMatrix(items[k].m);
+    const ne = _mtN.elements;
+    for (const n of names) {
+      const a = g.attributes[n], src = a.array, dst = arr[n], sz = a.itemSize;
+      if (n === "position") {
+        for (let i = 0, j = vo * 3; i < cnt * 3; i += 3, j += 3) {
+          const x = src[i], y = src[i + 1], z = src[i + 2];
+          dst[j] = e[0] * x + e[4] * y + e[8] * z + e[12];
+          dst[j + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+          dst[j + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+        }
+      } else if (n === "normal") {
+        for (let i = 0, j = vo * 3; i < cnt * 3; i += 3, j += 3) {
+          const x = src[i], y = src[i + 1], z = src[i + 2];
+          const nx = ne[0] * x + ne[3] * y + ne[6] * z, ny = ne[1] * x + ne[4] * y + ne[7] * z, nz = ne[2] * x + ne[5] * y + ne[8] * z;
+          const l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+          dst[j] = nx / l; dst[j + 1] = ny / l; dst[j + 2] = nz / l;
+        }
+      } else {
+        dst.set(src.length === cnt * sz ? src : src.subarray(0, cnt * sz), vo * sz);
+      }
+    }
+    if (indexed) { const s = g.index.array; for (let i = 0; i < g.index.count; i++) idx[io + i] = s[i] + vo; io += g.index.count; }
+    vo += cnt; slice += cnt;
+    // les geometries sources (partagees) ne changent pas entre deux etapes : on peut s'interrompre ici
+    if (sliceVerts && slice >= sliceVerts && k < items.length - 1) { slice = 0; yield; }
+  }
+  names.forEach((n) => out.setAttribute(n, new THREE.BufferAttribute(arr[n], g0.attributes[n].itemSize, g0.attributes[n].normalized)));
+  if (idx) out.setIndex(new THREE.BufferAttribute(idx, 1));
+  return out;
+}
+function mergeTransformed(items) {
+  const it = mergeTransformedSteps(items, 0);
+  let r = it.next();
+  while (!r.done) r = it.next();
+  return r.value;
+}
+
 /* ------------------------------- MATERIAUX ------------------------------- */
 // Un seul materiau PBR "universel" pour toutes les pieces en couleurs de sommets :
 // rugosite / metal / emissif sont portes par un attribut de sommet (aPBR). Resultat : un batiment,

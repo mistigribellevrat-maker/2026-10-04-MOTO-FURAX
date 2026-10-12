@@ -15,7 +15,14 @@ const QUALITY_LEVELS = {
   medium: { pr: 1.25, msaa: 2, shadow: 2048, bloom: 4, fx: 0.6 },
   low:    { pr: 1.0,  msaa: 0, shadow: 1024, bloom: 0, fx: 0.0 }
 };
-const QUALITY_ORDER = ["low", "medium", "high", "ultra"];
+// Qualite automatique : une echelle de reglages (niveau, part de la resolution), du plus leger au plus beau.
+// Telephone / tablette : depart a « medium », ordinateur : « high ». On descend d'un cran si les images
+// sont trop lentes, on remonte quand tout est fluide.
+const AUTO_LADDER = [["low", 0.6], ["low", 0.75], ["low", 0.9], ["medium", 0.8], ["medium", 0.9], ["medium", 1], ["high", 0.85], ["high", 1]];
+function autoStartStep() {
+  const touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  return touch ? 5 : AUTO_LADDER.length - 1;
+}
 
 const POST_VS = [
   "varying vec2 vUv;",
@@ -156,7 +163,7 @@ const RENDER = {
   level: "high", auto: true, scale: 1, maxScale: 1,
   hdr: false, w: 0, h: 0, cssW: 0, cssH: 0, pr: 1,
   rtScene: null, mips: [], quad: null, quadScene: null, quadCam: null,
-  mats: {}, ema: 16.7, slowT: 0, fastT: 0, lastAdjust: 0, frames: 0, time: 0,
+  mats: {}, ema: 16.7, slowT: 0, fastT: 0, lastAdjust: 0, lastUp: -1e9, ceil: null, best: 0, backoff: 0, step: 7, frames: 0, time: 0,
   shadowRefresh: null,
   fx: {
     exposure: 0.98, bloom: 0.38, bloomThreshold: 1.6, vignette: 0.4, aberration: 0.0006,
@@ -172,7 +179,9 @@ const RENDER = {
     const wanted = q.get("quality") || q.get("q") || (opts.level || "auto");
     this.userLevel = wanted;
     this.auto = wanted === "auto" && q.get("auto") !== "0";
-    this.level = QUALITY_LEVELS[wanted] ? wanted : "high";
+    this.step = autoStartStep();
+    this.level = QUALITY_LEVELS[wanted] ? wanted : AUTO_LADDER[this.step][0];
+    if (!QUALITY_LEVELS[wanted]) this.scale = AUTO_LADDER[this.step][1];
     const renderer = new THREE.WebGLRenderer({
       antialias: false, alpha: false, stencil: false, depth: true,
       powerPreference: "high-performance", preserveDrawingBuffer: !!opts.preserve
@@ -235,16 +244,17 @@ const RENDER = {
   setUserLevel(name) {
     this.userLevel = name;
     this.auto = name === "auto";
-    this.scale = 1; this.slowT = this.fastT = 0; this.lastAdjust = this.time;
-    this.applyLevel(name === "auto" ? "high" : name);
+    this.slowT = this.fastT = 0; this.lastAdjust = this.time; this.lastUp = -1e9; this.ceil = null;
+    if (this.auto) this.setStep(autoStartStep());
+    else { this.scale = 1; this.applyLevel(name); }
   },
-
-  // Reduit / augmente la qualite d'un cran
-  stepLevel(dir) {
-    const i = QUALITY_ORDER.indexOf(this.level) + dir;
-    if (i < 0 || i >= QUALITY_ORDER.length) return false;
-    this.applyLevel(QUALITY_ORDER[i]);
-    return true;
+  // un cran de l'echelle automatique : niveau (cibles de rendu, ombres, bloom) et/ou resolution
+  setStep(i) {
+    this.step = i;
+    const L = AUTO_LADDER[i];
+    this.scale = L[1];
+    if (L[0] !== this.level) this.applyLevel(L[0], true);
+    else this.resize(true);
   },
 
   resize(force) {
@@ -356,26 +366,36 @@ const RENDER = {
     this.frames++;
   },
 
-  // Qualite adaptative : mesure le temps de frame et ajuste la resolution interne
+  // Qualite adaptative : mesure le temps entre deux images et monte / descend d'un cran sur l'echelle.
+  // Sur un ecran 60 Hz, une image ne descend jamais sous 16,7 ms : « fluide » = proche du meilleur temps
+  // observe (la cadence de l'ecran), pas un seuil fixe. Un cran qui vient d'etre essaye et qui rame est
+  // retenu comme plafond, et on ne le retente qu'apres un delai qui double a chaque echec.
   tick(rawMs) {
     if (!this.auto) return;
     if (rawMs > 250) return; // onglet en arriere-plan / chargement
     this.ema += (rawMs - this.ema) * 0.06;
+    if (this.frames > 60) this.best = Math.min(this.best || 1e9, this.ema);
     const now = this.time;
     if (now - this.lastAdjust < 2.2 || this.frames < 90) return;
+    const smooth = this.ema < Math.min(19, Math.max(12.5, this.best * 1.12));
     if (this.ema > 21.5) {
       this.slowT += rawMs / 1000; this.fastT = 0;
-      if (this.slowT > 1.2) {
+      if (this.slowT > 1.2 && this.step > 0) {
         this.slowT = 0; this.lastAdjust = now;
-        if (this.scale > 0.62) { this.scale = Math.max(0.6, this.scale - 0.12); this.resize(true); }
-        else if (this.stepLevel(-1)) { this.scale = 0.85; this.resize(true); }
+        if (now - this.lastUp < 8) {            // le cran essaye ne tient pas : plafond temporaire
+          this.backoff = Math.min((this.backoff || 20) * 2, 240);
+          this.ceil = { step: this.step, until: now + this.backoff };
+        }
+        this.setStep(this.step - 1);
       }
-    } else if (this.ema < 12.5) {
+    } else if (smooth) {
       this.fastT += rawMs / 1000; this.slowT = 0;
-      if (this.fastT > 5) {
-        this.fastT = 0; this.lastAdjust = now;
-        if (this.scale < 0.99) { this.scale = Math.min(1, this.scale + 0.1); this.resize(true); }
-        else if (this.level !== "ultra" && this.level !== "high" && this.stepLevel(1)) { /* remonte jusqu'a high */ }
+      if (this.fastT > 6 && this.step < AUTO_LADDER.length - 1) {
+        this.fastT = 0;
+        const next = this.step + 1;
+        if (this.ceil && next >= this.ceil.step && now < this.ceil.until) return;
+        this.lastAdjust = now; this.lastUp = now;
+        this.setStep(next);
       }
     } else { this.slowT = Math.max(0, this.slowT - rawMs / 2000); this.fastT = 0; }
   }

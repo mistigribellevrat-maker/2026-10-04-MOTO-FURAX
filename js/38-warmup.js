@@ -88,11 +88,14 @@ function warmupShaders() {
   // 3) decor de tout le parcours : chaque quartier a ses enseignes, stores, etc. Chaque troncon est mis
   //    en page a chaque index du parcours puis compile (renderer.compile ignore le champ de vision).
   //    enterHome() remet ensuite les troncons de l'accueil en place.
+  //    Leurs textures (facades, devantures, enseignes...) partent aussi au GPU tout de suite : sinon une
+  //    vingtaine d'envois tombent dans la premiere image de la course (a-coup au depart).
   try {
     const last = MAX_CHUNK_INDEX + 2;
     for (let base = 0; base <= last; base += chunks.length) {
       for (let k = 0; k < chunks.length && base + k <= last; k++) { chunks[k].visible = true; layoutChunk(chunks[k], base + k, false); }
       RENDER.renderer.compile(scene, camera);
+      uploadSceneTextures(scene);
     }
   } catch (err) { console.warn("prechauffage decor :", err); }
 
@@ -100,4 +103,21 @@ function warmupShaders() {
   //    (dernier chat libere avec son troncon...) ; un compteur en plus et il reste en cache toute la partie
   RENDER.renderer.info.programs.forEach((pg) => { pg.usedTimes++; });
   WARM.programs = RENDER.renderer.info.programs.length;
+}
+
+// Envoie au GPU toutes les textures des materiaux de la scene (renderer.initTexture), une seule fois chacune
+const _upTex = new Set();
+function uploadSceneTextures(root) {
+  const up = (t) => {
+    if (!t || !t.isTexture || t.isRenderTargetTexture || _upTex.has(t) || !t.image) return;
+    _upTex.add(t);
+    try { RENDER.renderer.initTexture(t); } catch (err) { /* texture pas encore prete : envoyee a son premier affichage */ }
+  };
+  root.traverse((o) => {
+    if (!o.material) return;
+    (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => {
+      for (const k in m) { const v = m[k]; if (v && v.isTexture) up(v); }
+      if (m.uniforms) for (const k in m.uniforms) { const v = m.uniforms[k] && m.uniforms[k].value; if (v && v.isTexture) up(v); }
+    });
+  });
 }

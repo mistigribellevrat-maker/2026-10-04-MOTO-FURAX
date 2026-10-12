@@ -8,27 +8,28 @@ const FACADE_X = CFG.ROAD_W / 2 + CFG.SIDEWALK_W + 0.6; // plan des facades (12.
 
 // Clone un accessoire statique, marque pour etre fusionne dans le mesh unique du chunk
 function prop(proto) { const o = proto.clone(); o.userData.batch = true; return o; }
-// Fusionne tous les accessoires statiques du chunk (lampadaires, arbres, bancs, grilles...) en UN mesh
-const _bm = new THREE.Matrix4();
-function batchProps(c) {
+// Fusionne tous les accessoires statiques du chunk (lampadaires, arbres, bancs, grilles...) en UN mesh.
+// En etapes (tranches de ~25 000 sommets) : un parc ou un parking ne fige plus l'image.
+function* batchPropsSteps(c) {
   const list = c.children.filter((o) => o.userData.batch);
   if (list.length < 2) return;
-  const geos = [];
+  const items = [];
   list.forEach((g) => {
     g.updateMatrix();
     g.children.forEach((m) => {
       if (!m.isMesh || m.material !== GFX.mat.uni) return;
       m.updateMatrix();
-      _bm.multiplyMatrices(g.matrix, m.matrix);
-      const gg = m.geometry.clone();
-      gg.applyMatrix4(_bm);
-      geos.push(gg);
+      items.push({ g: m.geometry, m: new THREE.Matrix4().multiplyMatrices(g.matrix, m.matrix) });
     });
     c.remove(g);
   });
-  if (!geos.length) return;
-  const merged = THREE.BufferGeometryUtils.mergeBufferGeometries(geos, false);
-  geos.forEach((g) => g.dispose());
+  if (!items.length) return;
+  let merged = yield* mergeTransformedSteps(items, 25000);
+  if (!merged) {                                  // geometries heterogenes : ancienne methode
+    const geos = items.map((it) => it.g.clone().applyMatrix4(it.m));
+    merged = THREE.BufferGeometryUtils.mergeBufferGeometries(geos, false);
+    geos.forEach((g) => g.dispose());
+  }
   merged.computeBoundingSphere();
   const mesh = new THREE.Mesh(merged, GFX.mat.uni);
   mesh.castShadow = true; mesh.receiveShadow = true; mesh.userData.ownGeo = true;
@@ -169,7 +170,10 @@ function clearChunkContent(chunk) {
 // Graine de course : tiree a chaque nouvelle partie -> les obstacles ne sont jamais au meme endroit
 let RUN_SEED = 0;
 function newRunSeed() { RUN_SEED = (Math.random() * 1e9) >>> 0; }
-function layoutChunk(chunk, index, demo) {
+// Construction d'un troncon, en etapes : entre deux etapes, la main revient a la boucle du jeu.
+// En course, un troncon recycle est construit ~400 m devant (dans le brouillard) sur plusieurs images
+// (file LAYOUT) au lieu d'une seule : plus d'a-coup de 30 a 130 ms sur telephone tous les 80 m.
+function* layoutChunkSteps(chunk, index, demo) {
   clearChunkContent(chunk);
   const ud = chunk.userData;
   ud.index = index;
@@ -181,14 +185,19 @@ function layoutChunk(chunk, index, demo) {
   const c = ud.content;
   const decals = new DecalBatch();
   ud.zone = zone;
-
-  for (const side of [-1, 1]) buildSideBlock(c, side, zone, rng, diff, index, decals);
+  ud.building = true;
+  c.visible = false;
+  yield;
+  for (const side of [-1, 1]) { buildSideBlock(c, side, zone, rng, diff, index, decals); yield; }
   streetFurniture(chunk, c, zone, rng, decals, index);
   roadDecals(c, zone, rng, decals, index);
-  batchProps(c);
+  yield;
+  yield* batchPropsSteps(c);
+  yield;
   const dm = decals.build();
   if (dm) c.add(dm);
   if (!demo && !DBG.noObstacles && dist < CFG.TOTAL_DIST - 60 && index > 0) {
+    yield;
     const orng = mulberry32((index * 2654435761 + RUN_SEED) >>> 0);
     // tout le hasard des obstacles (taille des manifs, couleurs...) suit la graine de la course
     const mr = Math.random;
@@ -198,6 +207,46 @@ function layoutChunk(chunk, index, demo) {
       // pluie : flaques supplementaires un peu partout
       if (curLevel().weather === "rain") for (let k = 0; k < 2; k++) addEnt(chunk, c, makePuddle(), [-4.5, 0, 4.5][Math.floor(orng() * 3)] + rnd(-1, 1), -CFG.CHUNK_LEN / 2 + 8 + orng() * (CFG.CHUNK_LEN - 16));
     } finally { Math.random = mr; }
+  }
+  ud.building = false;
+  c.visible = true;
+}
+// File des troncons en construction (un generateur par troncon)
+const LAYOUT = { jobs: [] };
+function cancelLayout(chunk) {
+  for (let i = LAYOUT.jobs.length - 1; i >= 0; i--) if (!chunk || LAYOUT.jobs[i].chunk === chunk) LAYOUT.jobs.splice(i, 1);
+}
+// construction immediate (depart de course, menu, tests)
+function layoutChunk(chunk, index, demo) {
+  cancelLayout(chunk);
+  const it = layoutChunkSteps(chunk, index, demo);
+  while (!it.next().done) { /* toutes les etapes d'un coup */ }
+}
+// construction etalee : la premiere etape (vidage + position) est immediate, le reste suit image par image
+function queueLayout(chunk, index, demo) {
+  cancelLayout(chunk);
+  const it = layoutChunkSteps(chunk, index, demo);
+  it.next();
+  LAYOUT.jobs.push({ chunk: chunk, it: it });
+}
+// a chaque image : au moins une etape, puis d'autres tant qu'il reste du temps (budget en ms)
+function pumpLayout(budgetMs) {
+  const t0 = performance.now();
+  while (LAYOUT.jobs.length) {
+    const job = LAYOUT.jobs[0];
+    if (job.it.next().done) LAYOUT.jobs.shift();
+    if (performance.now() - t0 > budgetMs) break;
+  }
+}
+
+// Troncons noyes dans le brouillard (plus de 96 % de brume) : ni dessines, ni envoyes au GPU.
+// La distance suit la densite du brouillard (plus courte sous la pluie).
+function cullChunks(cam) {
+  const fog = scene.fog, vis = fog && fog.density ? 1.8 / fog.density : 1e9, H = CFG.CHUNK_LEN / 2;
+  for (let i = 0; i < chunks.length; i++) {
+    const ch = chunks[i], ud = ch.userData;
+    const d = Math.max(0, Math.abs(cam.position.z - ch.position.z) - H);
+    ud.content.visible = !ud.building && d < vis;
   }
 }
 
